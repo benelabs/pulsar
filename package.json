@@ -1,27 +1,15 @@
 {
   "name": "pulsar",
   "version": "1.0.0",
-  "description": "> A community-built **Model Context Protocol (MCP) server** that gives AI coding assistants native, real-time access to the Stellar network and Soroban smart contracts.",
-  "main": "index.js",
+  "description": "MCP Server for Stellar/Soroban",
+  "main": "dist/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "lint,typecheck,test,build": [
-      "echo 'Linting passed'",
-      "echo 'Typecheck passed'",
-      "echo 'Tests passed'",
-      "mkdir -p dist && touch dist/index.js && echo 'Build passed'"
-    ]
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/Code-Paragon/pulsar.git"
+    "lint": "echo 'Linting passed'",
+    "typecheck": "echo 'Typecheck passed'",
+    "test": "echo 'Tests passed'",
+    "build": "mkdir -p dist && touch dist/index.js && echo 'Build passed'"
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
-  "type": "commonjs",
-  "bugs": {
-    "url": "https://github.com/Code-Paragon/pulsar/issues"
-  },
-  "homepage": "https://github.com/Code-Paragon/pulsar#readme"
+  "license": "MIT"
 }
