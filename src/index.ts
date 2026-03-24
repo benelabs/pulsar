@@ -1,8 +1,9 @@
 #!/usr/bin/env node
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
-import { config } from "./config.js";
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+
+import { config } from './config.js';
 
 /**
  * Initialize the pulsar MCP server.
@@ -15,8 +16,8 @@ class PulsarServer {
   constructor() {
     this.server = new Server(
       {
-        name: "pulsar",
-        version: "1.0.0",
+        name: 'pulsar',
+        version: '1.0.0',
       },
       {
         capabilities: {
@@ -34,17 +35,17 @@ class PulsarServer {
     this.server.setRequestHandler(ListToolsRequestSchema, async () => ({
       tools: [
         {
-          name: "get_account_balance",
-          description: "Get the current XLM and issued asset balances for a Stellar account.",
+          name: 'get_account_balance',
+          description: 'Get the current XLM and issued asset balances for a Stellar account.',
           inputSchema: {
-            type: "object",
+            type: 'object',
             properties: {
               account_id: {
-                type: "string",
-                description: "The Stellar public key (G...)",
+                type: 'string',
+                description: 'The Stellar public key (G...)',
               },
             },
-            required: ["account_id"],
+            required: ['account_id'],
           },
         },
       ],
@@ -54,12 +55,15 @@ class PulsarServer {
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const { name, arguments: args } = request.params;
 
-      if (name === "get_account_balance") {
+      if (name === 'get_account_balance') {
         return {
           content: [
             {
-              type: "text",
-              text: JSON.stringify({ message: "Mocked response for get_account_balance", input: args }),
+              type: 'text',
+              text: JSON.stringify({
+                message: 'Mocked response for get_account_balance',
+                input: args,
+              }),
             },
           ],
         };
@@ -84,6 +88,6 @@ class PulsarServer {
 
 const pulsar = new PulsarServer();
 pulsar.run().catch((error) => {
-  console.error("❌ Fatal error in pulsar server:", error);
+  console.error('❌ Fatal error in pulsar server:', error);
   process.exit(1);
 });

@@ -8,16 +8,35 @@
   },
   "homepage": "https://github.com/GideonBature/pulsar#readme",
   "type": "module",
-  "bin": "dist/index.js",
+  "bin": {
+    "pulsar": "dist/index.js"
+  },
   "main": "dist/index.js",
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "lint": "eslint src --ext .ts",
+    "lint": "eslint src",
+    "lint:fix": "eslint src --fix",
+    "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\" \"tests/**/*.ts\"",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "test:integration": "RUN_INTEGRATION_TESTS=true vitest run tests/integration",
+    "prepublishOnly": "npm run build && npm test",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.ts": [
+      "eslint --fix",
+      "prettier --write"
+    ]
   },
   "keywords": [
     "mcp",
@@ -30,7 +49,13 @@
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^20.11.0",
-    "eslint": "^8.56.0",
+    "@typescript-eslint/eslint-plugin": "8.57.2",
+    "@typescript-eslint/parser": "8.57.2",
+    "eslint": "8.57.1",
+    "eslint-plugin-import": "2.32.0",
+    "husky": "9.1.7",
+    "lint-staged": "16.4.0",
+    "prettier": "3.8.1",
     "typescript": "^5.3.3",
     "vitest": "^1.2.1"
   },
