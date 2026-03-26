@@ -5,9 +5,11 @@ import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprot
 import { config } from "./config.js";
 import { fetchContractSpec, fetchContractSpecSchema } from "./tools/fetch_contract_spec.js";
 import { submitTransaction } from './tools/submit_transaction.js';
+import { simulateTransaction } from './tools/simulate_transaction.js';
 import {
   GetAccountBalanceInputSchema,
   SubmitTransactionInputSchema,
+  SimulateTransactionInputSchema,
 } from './schemas/tools.js';
 
 /**
@@ -112,6 +114,25 @@ class PulsarServer {
             required: ["contract_id"],
           },
         },
+        {
+          name: 'simulate_transaction',
+          description: 'Simulates a transaction on the Soroban RPC and returns results, footprint, fees, and events.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              xdr: {
+                type: 'string',
+                description: 'Base64-encoded XDR of the transaction envelope.',
+              },
+              network: {
+                type: 'string',
+                enum: ['mainnet', 'testnet', 'futurenet', 'custom'],
+                description: 'Override the configured network for this call.',
+              },
+            },
+            required: ['xdr'],
+          },
+        },
       ],
     }));
 
@@ -119,19 +140,11 @@ class PulsarServer {
       const { name, arguments: args } = request.params;
 
       if (name === 'get_account_balance') {
-        // Validate input schema
         const parsed = GetAccountBalanceInputSchema.safeParse(args);
         if (!parsed.success) {
-          const errorDetails = parsed.error.errors.map((err) => ({
-            path: err.path.join('.'),
-            message: err.message,
-          }));
-          throw new Error(
-            `Invalid input for get_account_balance: ${JSON.stringify(errorDetails)}`,
-          );
+          throw new Error(`Invalid input for get_account_balance: ${JSON.stringify(parsed.error.format())}`);
         }
 
-        // TODO: Implement actual get_account_balance logic
         return {
           content: [
             {
@@ -152,21 +165,25 @@ class PulsarServer {
         }
         const result = await fetchContractSpec(parsed.data);
         return { content: [{ type: "text", text: JSON.stringify(result) }] };
+      }
+
       if (name === 'submit_transaction') {
-        // Validate input schema
         const parsed = SubmitTransactionInputSchema.safeParse(args);
         if (!parsed.success) {
-          const errorDetails = parsed.error.errors.map((err) => ({
-            path: err.path.join('.'),
-            message: err.message,
-          }));
-          throw new Error(
-            `Invalid input for submit_transaction: ${JSON.stringify(errorDetails)}`,
-          );
+          throw new Error(`Invalid input for submit_transaction: ${JSON.stringify(parsed.error.format())}`);
         }
-
-        // Tool handler performs its own validation and returns structured error responses
         const result = await submitTransaction(parsed.data);
+        return {
+          content: [{ type: 'text', text: JSON.stringify(result) }],
+        };
+      }
+
+      if (name === 'simulate_transaction') {
+        const parsed = SimulateTransactionInputSchema.safeParse(args);
+        if (!parsed.success) {
+          throw new Error(`Invalid input for simulate_transaction: ${JSON.stringify(parsed.error.format())}`);
+        }
+        const result = await simulateTransaction(parsed.data);
         return {
           content: [{ type: 'text', text: JSON.stringify(result) }],
         };
@@ -196,3 +213,4 @@ pulsar.run().catch((error) => {
   console.error('❌ Fatal error in pulsar server:', error);
   process.exit(1);
 });
+

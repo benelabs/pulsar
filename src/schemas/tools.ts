@@ -73,3 +73,20 @@ export const ContractReadInputSchema = z.object({
 });
 
 export type ContractReadInput = z.infer<typeof ContractReadInputSchema>;
+
+/**
+ * Schema for simulate_transaction tool
+ *
+ * Inputs:
+ * - xdr: Transaction envelope XDR (required, non-empty base64)
+ * - network: Optional network override
+ */
+export const SimulateTransactionInputSchema = z.object({
+  xdr: XdrBase64Schema,
+  network: NetworkSchema.optional(),
+});
+
+export type SimulateTransactionInput = z.infer<
+  typeof SimulateTransactionInputSchema
+>;
+
