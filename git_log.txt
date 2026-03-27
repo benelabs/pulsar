@@ -1,0 +1,5 @@
+commit 9bb0c3ee521b04798e010d3c09e44635a8c06abe
+Author: EDOHWARES <edohemmanuel4real@gmail.com>
+Date:   Fri Mar 27 13:18:36 2026 +0100
+
+    feat: implement get_account_balance MCP tool

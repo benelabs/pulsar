@@ -1,0 +1,38 @@
+
+> pulsar@1.0.0 lint
+> eslint src
+
+
+/home/edohwares/Desktop/Room/drips/pulsar/src/config.ts
+  29:3  warning  Unexpected console statement  no-console
+
+/home/edohwares/Desktop/Room/drips/pulsar/src/errors.ts
+  13:31  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  22:42  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  29:42  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  36:42  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  43:42  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/edohwares/Desktop/Room/drips/pulsar/src/tools/get_account_balance.ts
+  44:56  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  64:17  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/edohwares/Desktop/Room/drips/pulsar/src/tools/simulate_transaction.ts
+   15:25  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   79:34  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   99:69  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  100:71  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  106:49  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  108:33  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  108:80  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  113:33  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  113:86  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  119:32  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  122:47  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/edohwares/Desktop/Room/drips/pulsar/src/tools/submit_transaction.ts
+  1:1  error  There should be at least one empty line between import groups  import/order
+
+✖ 20 problems (1 error, 19 warnings)
+  1 error and 0 warnings potentially fixable with the `--fix` option.
+

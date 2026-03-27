@@ -6,7 +6,6 @@ import {
   FeeBumpTransaction,
   TransactionBuilder,
 } from "@stellar/stellar-sdk";
-import { z } from "zod";
 
 import { config } from "../config.js";
 import {
