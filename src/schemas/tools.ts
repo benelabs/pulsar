@@ -94,6 +94,53 @@ export type SimulateTransactionInput = z.infer<
 >;
 
 /**
+ * Schema for compute_vesting_schedule tool
+ *
+ * Inputs:
+ * - total_amount: Total token amount to vest (required)
+ * - start_timestamp: Unix timestamp when vesting begins (required)
+ * - cliff_seconds: Seconds before any tokens unlock (required)
+ * - vesting_duration_seconds: Total vesting period in seconds (required)
+ * - release_frequency_seconds: How often tokens unlock after cliff (required)
+ * - beneficiary_type: Category like 'team' or 'investor' (required)
+ * - current_timestamp: Optional override for "now" (defaults to current time)
+ */
+export const ComputeVestingScheduleInputSchema = z.object({
+  total_amount: z
+    .number()
+    .positive({ message: "total_amount must be positive" }),
+  start_timestamp: z
+    .number()
+    .int()
+    .positive({ message: "start_timestamp must be a positive Unix timestamp" }),
+  cliff_seconds: z
+    .number()
+    .int()
+    .nonnegative({ message: "cliff_seconds must be non-negative" }),
+  vesting_duration_seconds: z
+    .number()
+    .int()
+    .positive({ message: "vesting_duration_seconds must be positive" }),
+  release_frequency_seconds: z
+    .number()
+    .int()
+    .positive({ message: "release_frequency_seconds must be positive" }),
+  beneficiary_type: z
+    .enum(["team", "investor", "advisor", "other"])
+    .describe("Type of beneficiary receiving the vesting tokens"),
+  current_timestamp: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe("Optional override for current time as Unix timestamp"),
+});
+
+export type ComputeVestingScheduleInput = z.infer<
+  typeof ComputeVestingScheduleInputSchema
+>;
+
+/**
  * Schema for get_contract_events tool
  *
  * Batches multiple contract IDs into a single Soroban RPC getEvents call,
@@ -138,4 +185,3 @@ export const GetContractEventsInputSchema = z.object({
 });
 
 export type GetContractEventsInput = z.infer<typeof GetContractEventsInputSchema>;
-

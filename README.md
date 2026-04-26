@@ -35,6 +35,7 @@
   - [simulate_transaction](#simulate_transaction)
   - [decode_ledger_entry](#decode_ledger_entry)
   - [submit_transaction](#submit_transaction)
+  - [compute_vesting_schedule](#compute_vesting_schedule)
 - [Example Prompts & Workflows](#example-prompts--workflows)
 - [Soroban CLI Integration](#soroban-cli-integration)
 - [Development Guide](#development-guide)
@@ -88,6 +89,7 @@ There is currently **no community-driven MCP server** for Stellar, which means:
 | **Transaction Simulation** | Dry-run a Soroban transaction and inspect resource usage and return values before spending fees |
 | **Ledger Entry Decoding** | Decode raw XDR ledger entries into human-readable JSON |
 | **Transaction Submission** | Sign (via a provided secret key or external signer) and submit transactions to the network |
+| **Vesting Schedule Computation** | Calculate token vesting / timelock release schedules for team, investors, and advisors |
 | **Multi-network** | Targets Mainnet, Testnet, Futurenet, or a custom RPC endpoint |
 | **Soroban CLI Backend** | Delegates complex operations to the official `stellar` / `soroban` CLI for maximum correctness |
 | **Structured Output** | All tool responses are typed JSON objects the AI can directly parse and act upon |
@@ -640,6 +642,56 @@ Sign (optionally) and submit a transaction to the Stellar network. If `STELLAR_S
 
 ---
 
+### `compute_vesting_schedule`
+
+Calculate a token vesting / timelock release schedule for team members, investors, or advisors. Given a total allocation, start time, cliff, vesting duration, and release frequency, the tool returns the amount already released, the amount still locked, and a period-by-period schedule.
+
+**Input:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `total_amount` | `number` | Yes | Total token amount to vest |
+| `start_timestamp` | `number` | Yes | Unix timestamp when vesting begins |
+| `cliff_seconds` | `number` | Yes | Seconds before any tokens unlock (cliff period) |
+| `vesting_duration_seconds` | `number` | Yes | Total vesting period in seconds |
+| `release_frequency_seconds` | `number` | Yes | How often tokens unlock after cliff (e.g. `2592000` for monthly) |
+| `beneficiary_type` | `string` | Yes | Category: `team`, `investor`, `advisor`, or `other` |
+| `current_timestamp` | `number` | No | Optional override for "now" (defaults to current time) |
+
+**Output:**
+
+```jsonc
+{
+  "beneficiary_type": "team",
+  "total_amount": "1000000.0000000",
+  "start_date": "2024-11-13T12:00:00.000Z",
+  "cliff_date": "2025-11-13T12:00:00.000Z",
+  "end_date": "2028-11-13T12:00:00.000Z",
+  "released_amount": "250000.0000000",
+  "unreleased_amount": "750000.0000000",
+  "vesting_percentage": 25.0,
+  "next_release_date": "2025-12-13T12:00:00.000Z",
+  "schedule": [
+    {
+      "release_date": "2025-12-13T12:00:00.000Z",
+      "amount": "20833.3333333",
+      "released": true
+    },
+    {
+      "release_date": "2026-01-13T12:00:00.000Z",
+      "amount": "20833.3333333",
+      "released": false
+    }
+  ]
+}
+```
+
+**Example prompt:**
+
+> _"Compute the vesting schedule for 1,000,000 tokens allocated to the team with a 1-year cliff and 4-year vesting, releasing monthly."_
+
+---
+
 ## Example Prompts & Workflows
 
 These are real-world workflows that become possible once pulsar is connected to your AI assistant.
@@ -693,6 +745,7 @@ Operations that use the CLI backend:
 | `simulate_transaction` | calls Soroban RPC `simulateTransaction` directly |
 | `decode_ledger_entry` | `stellar xdr decode` |
 | `submit_transaction` | calls Soroban RPC / Horizon directly, uses CLI for signing if needed |
+| `compute_vesting_schedule` | pure computation, no external calls |
 
 You can inspect the exact CLI commands being executed by setting `LOG_LEVEL=debug`.
 
@@ -711,7 +764,8 @@ pulsar/
 │   │   ├── fetch_contract_spec.ts
 │   │   ├── simulate_transaction.ts
 │   │   ├── decode_ledger_entry.ts
-│   │   └── submit_transaction.ts
+│   │   ├── submit_transaction.ts
+│   │   └── compute_vesting_schedule.ts
 │   ├── services/
 │   │   ├── horizon.ts        # Horizon REST client wrapper
 │   │   ├── soroban-rpc.ts    # Soroban JSON-RPC client wrapper
@@ -821,6 +875,7 @@ npm run typecheck
 - [x] `simulate_transaction` — dry-run via Soroban RPC
 - [x] `decode_ledger_entry` — XDR decode
 - [x] `submit_transaction` — broadcast + wait for result
+- [x] `compute_vesting_schedule` — token vesting / timelock schedule calculator
 - [ ] `get_transaction_history` — paginated history for an account
 - [ ] `stream_events` — subscribe to Soroban contract events
 - [ ] `build_transaction` — construct a Soroban invoke transaction from contract spec + args (without needing pre-built XDR)

@@ -8,11 +8,13 @@ import { fetchContractSpec, fetchContractSpecSchema } from "./tools/fetch_contra
 import { submitTransaction } from './tools/submit_transaction.js';
 import { simulateTransaction } from './tools/simulate_transaction.js';
 import { getAccountBalance } from './tools/get_account_balance.js';
+import { computeVestingSchedule } from './tools/compute_vesting_schedule.js';
 import { getContractEvents } from './tools/get_contract_events.js';
 import {
   GetAccountBalanceInputSchema,
   SubmitTransactionInputSchema,
   SimulateTransactionInputSchema,
+  ComputeVestingScheduleInputSchema,
   GetContractEventsInputSchema,
 } from './schemas/tools.js';
 import logger from './logger.js';
@@ -153,6 +155,52 @@ class PulsarServer {
           },
         },
         {
+          name: 'compute_vesting_schedule',
+          description: 'Calculate a token vesting / timelock release schedule for team, investors, or advisors. Returns released and unreleased amounts plus a period-by-period breakdown.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              total_amount: {
+                type: 'number',
+                description: 'Total token amount to vest.',
+              },
+              start_timestamp: {
+                type: 'number',
+                description: 'Unix timestamp when vesting begins.',
+              },
+              cliff_seconds: {
+                type: 'number',
+                description: 'Seconds before any tokens unlock (cliff period).',
+              },
+              vesting_duration_seconds: {
+                type: 'number',
+                description: 'Total vesting period in seconds.',
+              },
+              release_frequency_seconds: {
+                type: 'number',
+                description: 'How often tokens unlock after cliff (e.g. 2592000 for monthly).',
+              },
+              beneficiary_type: {
+                type: 'string',
+                enum: ['team', 'investor', 'advisor', 'other'],
+                description: 'Category of beneficiary.',
+              },
+              current_timestamp: {
+                type: 'number',
+                description: 'Optional override for current time as Unix timestamp.',
+              },
+            },
+            required: [
+              'total_amount',
+              'start_timestamp',
+              'cliff_seconds',
+              'vesting_duration_seconds',
+              'release_frequency_seconds',
+              'beneficiary_type',
+            ],
+          },
+        },
+        {
           name: 'get_contract_events',
           description:
             'Fetch and batch Soroban contract events across one or more contracts in a single RPC call. ' +
@@ -259,6 +307,17 @@ class PulsarServer {
             };
           }
 
+          case 'compute_vesting_schedule': {
+            const parsed = ComputeVestingScheduleInputSchema.safeParse(args);
+            if (!parsed.success) {
+              throw new PulsarValidationError(`Invalid input for compute_vesting_schedule`, parsed.error.format());
+            }
+            const result = await computeVestingSchedule(parsed.data);
+            return {
+              content: [{ type: 'text', text: JSON.stringify(result) }],
+            };
+          }
+
           case 'get_contract_events': {
             const parsed = GetContractEventsInputSchema.safeParse(args);
             if (!parsed.success) {
@@ -339,4 +398,3 @@ pulsar.run().catch((error) => {
   logger.fatal({ error }, '❌ Fatal error in pulsar server');
   process.exit(1);
 });
-
