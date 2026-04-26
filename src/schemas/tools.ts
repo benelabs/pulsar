@@ -15,6 +15,13 @@ import {
   NetworkSchema,
 } from "./index.js";
 
+const Hex32Schema = z
+  .string()
+  .regex(/^[a-fA-F0-9]{64}$/, {
+    message: "Must be a 64-character hex string (32 bytes)",
+  })
+  .describe("32-byte value encoded as 64 hex characters");
+
 /**
  * Schema for get_account_balance tool
  *
@@ -139,6 +146,74 @@ export const ComputeVestingScheduleInputSchema = z.object({
 export type ComputeVestingScheduleInput = z.infer<
   typeof ComputeVestingScheduleInputSchema
 >;
+
+/**
+ * Schema for deploy_contract tool
+ *
+ * Supports two deployment modes:
+ * - direct: Uses the built-in Soroban deployer (createCustomContract)
+ * - factory: Invokes a factory contract's deploy function
+ *
+ * Inputs:
+ * - mode: 'direct' | 'factory'
+ * - source_account: Stellar public key deploying the contract (required)
+ * - wasm_hash: 64-char hex WASM hash (required for direct)
+ * - salt: Optional 64-char hex salt for deterministic address (direct only)
+ * - factory_contract_id: Factory contract ID (required for factory)
+ * - deploy_function: Factory deploy function name (default: 'deploy')
+ * - deploy_args: Array of typed SCVal arguments for factory deploy function
+ * - network: Optional network override
+ */
+export const DeployContractInputSchema = z.object({
+  mode: z
+    .enum(["direct", "factory"])
+    .describe("Deployment mode: direct (built-in deployer) or factory (via factory contract)"),
+  source_account: StellarPublicKeySchema.describe(
+    "The Stellar account that will deploy the contract and pay fees"
+  ),
+  wasm_hash: Hex32Schema.optional().describe(
+    "SHA-256 hash of the uploaded WASM (64 hex chars). Required for direct mode."
+  ),
+  salt: Hex32Schema.optional().describe(
+    "Optional 32-byte salt for deterministic contract address (64 hex chars). Random if omitted."
+  ),
+  factory_contract_id: ContractIdSchema.optional().describe(
+    "Factory contract ID. Required for factory mode."
+  ),
+  deploy_function: z
+    .string()
+    .min(1)
+    .optional()
+    .describe("Factory contract deploy function name (default: 'deploy')"),
+  deploy_args: z
+    .array(
+      z.object({
+        type: z
+          .enum([
+            "symbol",
+            "string",
+            "u32",
+            "i32",
+            "u64",
+            "i64",
+            "u128",
+            "i128",
+            "bool",
+            "address",
+            "bytes",
+            "void",
+          ])
+          .optional()
+          .describe("Soroban SCVal type hint"),
+        value: z.unknown().describe("The value to convert to SCVal"),
+      })
+    )
+    .optional()
+    .describe("Arguments for factory deploy function as typed SCVal objects"),
+  network: NetworkSchema.optional(),
+});
+
+export type DeployContractInput = z.infer<typeof DeployContractInputSchema>;
 
 /**
  * Schema for get_contract_events tool
