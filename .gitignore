@@ -29,3 +29,6 @@ coverage/
 *.njsproj
 *.sln
 *.sw?
+
+# rust
+target/
