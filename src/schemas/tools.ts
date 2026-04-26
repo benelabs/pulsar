@@ -93,3 +93,49 @@ export type SimulateTransactionInput = z.infer<
   typeof SimulateTransactionInputSchema
 >;
 
+/**
+ * Schema for get_contract_events tool
+ *
+ * Batches multiple contract IDs into a single Soroban RPC getEvents call,
+ * deduplicates results by event ID, and returns a paginated response.
+ *
+ * Inputs:
+ * - contract_ids: 1–5 Soroban contract addresses to query together
+ * - start_ledger: First ledger to include (required on first page; omit when using cursor)
+ * - event_type: Filter by event classification (default: "contract")
+ * - topics: Optional topic filters — each inner array is an AND-list of matchers
+ * - limit: Max events per batch (1–200, default 100)
+ * - cursor: Pagination cursor returned by a previous call
+ * - network: Optional network override
+ */
+export const GetContractEventsInputSchema = z.object({
+  contract_ids: z
+    .array(ContractIdSchema)
+    .min(1, { message: "At least one contract_id is required" })
+    .max(5, { message: "At most 5 contract_ids can be batched per request" }),
+  start_ledger: z
+    .number()
+    .int()
+    .positive({ message: "start_ledger must be a positive integer" })
+    .optional(),
+  event_type: z
+    .enum(["contract", "system", "diagnostic", "all"])
+    .default("contract")
+    .describe("Filter events by classification"),
+  topics: z
+    .array(z.array(z.string().min(1)))
+    .max(4, { message: "At most 4 topic filters are allowed" })
+    .optional()
+    .describe("Topic match filters — each inner array is an AND-list of hex/base64 ScVal matchers"),
+  limit: z
+    .number()
+    .int()
+    .min(1, { message: "limit must be at least 1" })
+    .max(200, { message: "limit must not exceed 200" })
+    .default(100),
+  cursor: z.string().optional().describe("Pagination cursor from a previous get_contract_events response"),
+  network: NetworkSchema.optional(),
+});
+
+export type GetContractEventsInput = z.infer<typeof GetContractEventsInputSchema>;
+

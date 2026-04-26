@@ -8,10 +8,12 @@ import { fetchContractSpec, fetchContractSpecSchema } from "./tools/fetch_contra
 import { submitTransaction } from './tools/submit_transaction.js';
 import { simulateTransaction } from './tools/simulate_transaction.js';
 import { getAccountBalance } from './tools/get_account_balance.js';
+import { getContractEvents } from './tools/get_contract_events.js';
 import {
   GetAccountBalanceInputSchema,
   SubmitTransactionInputSchema,
   SimulateTransactionInputSchema,
+  GetContractEventsInputSchema,
 } from './schemas/tools.js';
 import logger from './logger.js';
 import { PulsarError, PulsarNetworkError, PulsarValidationError } from './errors.js';
@@ -150,6 +152,56 @@ class PulsarServer {
             required: ['xdr'],
           },
         },
+        {
+          name: 'get_contract_events',
+          description:
+            'Fetch and batch Soroban contract events across one or more contracts in a single RPC call. ' +
+            'Supports ledger-range filtering, topic matchers, and cursor-based pagination. ' +
+            'Events are deduplicated by ID so broad filters never emit the same event twice.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              contract_ids: {
+                type: 'array',
+                items: { type: 'string' },
+                minItems: 1,
+                maxItems: 5,
+                description: 'One to five Soroban contract addresses (C...) to query in a single batched request.',
+              },
+              start_ledger: {
+                type: 'number',
+                description: 'First ledger sequence to include. Required for the first page; omit when using cursor.',
+              },
+              event_type: {
+                type: 'string',
+                enum: ['contract', 'system', 'diagnostic', 'all'],
+                default: 'contract',
+                description: 'Filter events by classification.',
+              },
+              topics: {
+                type: 'array',
+                items: { type: 'array', items: { type: 'string' } },
+                maxItems: 4,
+                description: 'Optional topic filters. Each inner array is an AND-list of hex/base64 ScVal matchers.',
+              },
+              limit: {
+                type: 'number',
+                default: 100,
+                description: 'Maximum events to return per batch (1–200).',
+              },
+              cursor: {
+                type: 'string',
+                description: 'Pagination cursor from a previous get_contract_events response (next_cursor field).',
+              },
+              network: {
+                type: 'string',
+                enum: ['mainnet', 'testnet', 'futurenet', 'custom'],
+                description: 'Override the configured network for this call.',
+              },
+            },
+            required: ['contract_ids'],
+          },
+        },
       ],
     }));
 
@@ -205,6 +257,15 @@ class PulsarServer {
             return {
               content: [{ type: 'text', text: JSON.stringify(result) }],
             };
+          }
+
+          case 'get_contract_events': {
+            const parsed = GetContractEventsInputSchema.safeParse(args);
+            if (!parsed.success) {
+              throw new PulsarValidationError(`Invalid input for get_contract_events`, parsed.error.format());
+            }
+            const result = await getContractEvents(parsed.data);
+            return { content: [{ type: 'text', text: JSON.stringify(result) }] };
           }
 
           default:
