@@ -8,13 +8,16 @@ import { fetchContractSpec, fetchContractSpecSchema } from "./tools/fetch_contra
 import { submitTransaction } from './tools/submit_transaction.js';
 import { simulateTransaction } from './tools/simulate_transaction.js';
 import { getAccountBalance } from './tools/get_account_balance.js';
+import { manageRestrictedAddresses, ManageRestrictedAddressesInputSchema } from './tools/manage_restricted_addresses.js';
 import {
   GetAccountBalanceInputSchema,
   SubmitTransactionInputSchema,
   SimulateTransactionInputSchema,
 } from './schemas/tools.js';
 import logger from './logger.js';
-import { PulsarError, PulsarNetworkError, PulsarValidationError } from './errors.js';
+import { PulsarError, PulsarNetworkError, PulsarValidationError, PulsarRestrictedAddressError } from './errors.js';
+import { addressRegistry } from './services/address-registry.js';
+import { checkToolInput } from './services/address-guard.js';
 
 /**
  * Initialize the pulsar MCP server.
@@ -150,6 +153,25 @@ class PulsarServer {
             required: ['xdr'],
           },
         },
+        {
+          name: 'manage_restricted_addresses',
+          description: 'Add, remove, list, or check restricted Stellar/Soroban addresses. Restricted addresses are blocked from all tool calls.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              action: {
+                type: 'string',
+                enum: ['add', 'remove', 'list', 'check'],
+                description: 'Action to perform on the restricted address list.',
+              },
+              address: {
+                type: 'string',
+                description: 'Stellar public key (G...) or Soroban contract ID (C...). Required for add, remove, check.',
+              },
+            },
+            required: ['action'],
+          },
+        },
       ],
     }));
 
@@ -158,6 +180,13 @@ class PulsarServer {
 
       try {
         logger.debug({ tool: name, arguments: args }, `Executing tool: ${name}`);
+
+        // Guard: check all address fields against the restricted list before any network call
+        const guardResult = checkToolInput(name, (args ?? {}) as Record<string, unknown>, addressRegistry);
+        if (guardResult.blocked) {
+          logger.warn({ tool: name, address: guardResult.address }, 'Restricted address detected in tool call');
+          throw new PulsarRestrictedAddressError(guardResult.address!, name);
+        }
 
         switch (name) {
           case 'get_account_balance': {
@@ -202,6 +231,17 @@ class PulsarServer {
               throw new PulsarValidationError(`Invalid input for simulate_transaction`, parsed.error.format());
             }
             const result = await simulateTransaction(parsed.data);
+            return {
+              content: [{ type: 'text', text: JSON.stringify(result) }],
+            };
+          }
+
+          case 'manage_restricted_addresses': {
+            const parsed = ManageRestrictedAddressesInputSchema.safeParse(args);
+            if (!parsed.success) {
+              throw new PulsarValidationError(`Invalid input for manage_restricted_addresses`, parsed.error.format());
+            }
+            const result = await manageRestrictedAddresses(parsed.data);
             return {
               content: [{ type: 'text', text: JSON.stringify(result) }],
             };
@@ -265,6 +305,7 @@ class PulsarServer {
   }
 
   async run() {
+    await addressRegistry.load();
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
     logger.info(
