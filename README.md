@@ -552,6 +552,9 @@ Decode a raw base64-encoded XDR ledger entry into a human-readable JSON structur
 |---|---|---|---|
 | `xdr` | `string` | Yes | The base64-encoded XDR of the ledger entry (key or value) |
 | `entry_type` | `string` | No | Hint for decoding: `account`, `trustline`, `contract_data`, `contract_code`, `offer`, `data` |
+| `compression.enabled` | `boolean` | No | Enable decompression pass for embedded base64 blobs in decoded ledger fields |
+| `compression.algorithm` | `string` | No | Compression algorithm: `auto` (default), `gzip`, `deflate`, `brotli` |
+| `compression.fields` | `string[]` | No | Dot-paths to fields to inspect (for example `val.data`); if omitted, common blob fields are auto-discovered |
 
 **Output:**
 
@@ -576,7 +579,21 @@ Decode a raw base64-encoded XDR ledger entry into a human-readable JSON structur
     "durability": "persistent",
     "last_modified_ledger": 48123456
   },
-  "raw_xdr": "AAAABgAAAAEA..."
+  "raw_xdr": "AAAABgAAAAEA...",
+  "compression": {
+    "enabled": true,
+    "requested_algorithm": "auto",
+    "inspected_fields": ["val.data"],
+    "decompressed_fields": [
+      {
+        "path": "val.data",
+        "algorithm": "gzip",
+        "utf8": "{\"version\":1,\"blob\":\"...\"}",
+        "byte_length": 26
+      }
+    ],
+    "skipped_fields": []
+  }
 }
 ```
 
