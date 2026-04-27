@@ -37,6 +37,7 @@
   - [submit_transaction](#submit_transaction)
   - [compute_vesting_schedule](#compute_vesting_schedule)
   - [deploy_contract](#deploy_contract)
+  - [amm](#amm)
 - [Example Prompts & Workflows](#example-prompts--workflows)
 - [Soroban CLI Integration](#soroban-cli-integration)
 - [Development Guide](#development-guide)
@@ -92,6 +93,7 @@ There is currently **no community-driven MCP server** for Stellar, which means:
 | **Transaction Submission** | Sign (via a provided secret key or external signer) and submit transactions to the network |
 | **Contract Deployment** | Deploy Soroban smart contracts via built-in deployer or factory contracts |
 | **Vesting Schedule Computation** | Calculate token vesting / timelock release schedules for team, investors, and advisors |
+| **Automated Market Maker (AMM)** | Interact with constant-product (x*y=k) AMM pools: swap tokens, add/remove liquidity, get quotes |
 | **Multi-network** | Targets Mainnet, Testnet, Futurenet, or a custom RPC endpoint |
 | **Soroban CLI Backend** | Delegates complex operations to the official `stellar` / `soroban` CLI for maximum correctness |
 | **Structured Output** | All tool responses are typed JSON objects the AI can directly parse and act upon |
@@ -747,6 +749,243 @@ Builds a Stellar transaction for deploying a Soroban smart contract. Supports tw
 
 ---
 
+### `amm`
+
+Interact with Automated Market Maker (AMM) contracts implementing the constant-product (x*y=k) formula. This tool supports token swaps, liquidity provision/removal, pool queries, and price impact calculations with built-in slippage protection.
+
+**Actions:**
+
+| Action | Description |
+|---|---|
+| `swap` | Swap one asset for another with slippage protection |
+| `add_liquidity` | Add liquidity to a pool and receive LP shares |
+| `remove_liquidity` | Burn LP shares to withdraw underlying assets |
+| `get_quote` | Get a swap quote with price impact calculation |
+| `get_pool_info` | Query pool reserves and total LP shares |
+
+#### Swap Tokens
+
+Exchange one asset for another using the AMM pool. The tool builds a transaction that you should simulate before submitting.
+
+**Input (action: `swap`):**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `amm_contract_id` | `string` | Yes | AMM contract ID (`C...`) |
+| `source_account` | `string` | Yes | Your Stellar public key (`G...`) |
+| `offer_asset_code` | `string` | Yes | Asset code you're offering (e.g., `XLM`, `USDC`) |
+| `offer_asset_issuer` | `string` | No | Issuer of offered asset (omit for XLM) |
+| `offer_amount` | `string` | Yes | Amount in stroops (1 XLM = 10,000,000 stroops) |
+| `min_receive_amount` | `string` | Yes | Minimum amount to receive (slippage protection) in stroops |
+| `receive_asset_code` | `string` | Yes | Asset code you want to receive |
+| `receive_asset_issuer` | `string` | No | Issuer of receive asset (omit for XLM) |
+| `network` | `string` | No | Override network: `mainnet`, `testnet`, `futurenet` |
+
+**Output:**
+
+```jsonc
+{
+  "status": "success",
+  "action": "swap",
+  "transaction_xdr": "AAAAAgAAAAE...",
+  "message": "Swap transaction built. Simulate before submitting."
+}
+```
+
+**Example prompt:**
+
+> _"Swap 10 XLM for USDC using AMM contract `CA3D...` with minimum receive of 150 USDC."_
+
+#### Add Liquidity
+
+Provide liquidity to an AMM pool and receive LP (Liquidity Provider) shares proportional to your contribution.
+
+**Input (action: `add_liquidity`):**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `amm_contract_id` | `string` | Yes | AMM contract ID (`C...`) |
+| `source_account` | `string` | Yes | Your Stellar public key (`G...`) |
+| `asset_a_code` | `string` | Yes | First asset code |
+| `asset_a_issuer` | `string` | No | Issuer of first asset (omit for XLM) |
+| `asset_a_amount` | `string` | Yes | Amount of first asset in stroops |
+| `asset_b_code` | `string` | Yes | Second asset code |
+| `asset_b_issuer` | `string` | No | Issuer of second asset (omit for XLM) |
+| `asset_b_amount` | `string` | Yes | Amount of second asset in stroops |
+| `min_shares_received` | `string` | Yes | Minimum LP shares to receive (slippage protection) |
+| `network` | `string` | No | Override network |
+
+**Output:**
+
+```jsonc
+{
+  "status": "success",
+  "action": "add_liquidity",
+  "transaction_xdr": "AAAAAgAAAAE...",
+  "message": "Add liquidity transaction built. Simulate before submitting."
+}
+```
+
+**Example prompt:**
+
+> _"Add liquidity to pool `CA3D...`: 100 XLM and 200 USDC, minimum 4000 LP shares."_
+
+#### Remove Liquidity
+
+Burn LP shares to withdraw your proportionate share of the pool's underlying assets.
+
+**Input (action: `remove_liquidity`):**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `amm_contract_id` | `string` | Yes | AMM contract ID (`C...`) |
+| `source_account` | `string` | Yes | Your Stellar public key (`G...`) |
+| `shares_amount` | `string` | Yes | Amount of LP shares to burn in stroops |
+| `min_asset_a_amount` | `string` | Yes | Minimum asset A to receive (slippage protection) |
+| `min_asset_b_amount` | `string` | Yes | Minimum asset B to receive (slippage protection) |
+| `network` | `string` | No | Override network |
+
+**Output:**
+
+```jsonc
+{
+  "status": "success",
+  "action": "remove_liquidity",
+  "transaction_xdr": "AAAAAgAAAAE...",
+  "message": "Remove liquidity transaction built. Simulate before submitting."
+}
+```
+
+**Example prompt:**
+
+> _"Remove 500 LP shares from pool `CA3D...`, minimum 50 XLM and 100 USDC."_
+
+#### Get Swap Quote
+
+Get a quote for a potential swap, including expected output, price impact, and exchange rate. This is a read-only operation that doesn't build a transaction.
+
+**Input (action: `get_quote`):**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `amm_contract_id` | `string` | Yes | AMM contract ID (`C...`) |
+| `offer_asset_code` | `string` | Yes | Asset code being offered |
+| `offer_asset_issuer` | `string` | No | Issuer of offered asset (omit for XLM) |
+| `offer_amount` | `string` | Yes | Amount being offered in stroops |
+| `receive_asset_code` | `string` | Yes | Asset code to receive |
+| `receive_asset_issuer` | `string` | No | Issuer of receive asset (omit for XLM) |
+| `network` | `string` | No | Override network |
+
+**Output:**
+
+```jsonc
+{
+  "status": "success",
+  "offer_asset": {
+    "code": "XLM",
+    "issuer": "native",
+    "amount": "10000000"
+  },
+  "receive_asset": {
+    "code": "USDC",
+    "issuer": "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN",
+    "amount": "19850000"
+  },
+  "pool_reserves": {
+    "reserve_a": "1000000000",
+    "reserve_b": "2000000000"
+  },
+  "fee_bps": 30,
+  "price_impact_bps": 150,
+  "exchange_rate": 1.985
+}
+```
+
+**Example prompt:**
+
+> _"Get a quote for swapping 10 XLM to USDC on AMM `CA3D...` with current reserves."_
+
+#### Get Pool Information
+
+Query the current state of an AMM pool, including reserves for both assets and total LP shares in circulation.
+
+**Input (action: `get_pool_info`):**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `amm_contract_id` | `string` | Yes | AMM contract ID (`C...`) |
+| `asset_a_code` | `string` | Yes | First asset code |
+| `asset_a_issuer` | `string` | No | Issuer of first asset (omit for XLM) |
+| `asset_b_code` | `string` | Yes | Second asset code |
+| `asset_b_issuer` | `string` | No | Issuer of second asset (omit for XLM) |
+| `network` | `string` | No | Override network |
+
+**Output:**
+
+```jsonc
+{
+  "status": "success",
+  "pool": {
+    "asset_a": {
+      "code": "XLM",
+      "issuer": "native",
+      "reserve": "1000000000"
+    },
+    "asset_b": {
+      "code": "USDC",
+      "issuer": "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN",
+      "reserve": "2000000000"
+    },
+    "total_shares": "1414213562",
+    "contract_id": "CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE"
+  },
+  "constant_product": "2000000000000000000"
+}
+```
+
+**Example prompt:**
+
+> _"Get pool information for the XLM/USDC pair on AMM contract `CA3D...`."_
+
+---
+
+## AMM Mathematics
+
+pulsar implements the standard constant-product AMM formula (x * y = k) used by Uniswap V2 and similar protocols:
+
+### Swap Calculation
+
+```
+output = (reserve_out * amount_in * (1 - fee)) / (reserve_in + amount_in * (1 - fee))
+```
+
+Where:
+- `fee` = 0.30% (30 basis points)
+- `reserve_in` = Current reserve of the input asset
+- `reserve_out` = Current reserve of the output asset
+- `amount_in` = Amount being swapped
+
+### Liquidity Shares
+
+**Initial deposit:**
+```
+shares = sqrt(amount_a * amount_b)
+```
+
+**Subsequent deposits:**
+```
+shares = min((amount_a * total_shares) / reserve_a, (amount_b * total_shares) / reserve_b)
+```
+
+### Remove Liquidity
+
+```
+amount_a = (shares_burned * reserve_a) / total_shares
+amount_b = (shares_burned * reserve_b) / total_shares
+```
+
+---
+
 ## Example Prompts & Workflows
 
 These are real-world workflows that become possible once pulsar is connected to your AI assistant.
@@ -934,6 +1173,7 @@ npm run typecheck
 - [x] `submit_transaction` — broadcast + wait for result
 - [x] `compute_vesting_schedule` — token vesting / timelock schedule calculator
 - [x] `deploy_contract` — deploy Soroban contracts via built-in deployer or factory pattern
+- [x] `amm` — Automated Market Maker (constant-product x*y=k) with swap, liquidity, and quote operations
 - [ ] `get_transaction_history` — paginated history for an account
 - [ ] `stream_events` — subscribe to Soroban contract events
 - [ ] `build_transaction` — construct a Soroban invoke transaction from contract spec + args (without needing pre-built XDR)
