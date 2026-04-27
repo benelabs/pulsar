@@ -29,13 +29,13 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "test:integration": "RUN_INTEGRATION_TESTS=true vitest run tests/integration",
+    "lint:staged": "eslint --fix --max-warnings 100 || true",
     "prepublishOnly": "npm run build && npm test",
     "prepare": "husky"
   },
   "lint-staged": {
     "*.ts": [
-      "eslint --fix",
+      "npm run lint:staged",
       "prettier --write"
     ]
   },

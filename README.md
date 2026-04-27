@@ -37,6 +37,7 @@
   - [submit_transaction](#submit_transaction)
   - [compute_vesting_schedule](#compute_vesting_schedule)
   - [deploy_contract](#deploy_contract)
+  - [get_price_feed](#get_price_feed)
 - [Example Prompts & Workflows](#example-prompts--workflows)
 - [Soroban CLI Integration](#soroban-cli-integration)
 - [Development Guide](#development-guide)
@@ -91,6 +92,7 @@ There is currently **no community-driven MCP server** for Stellar, which means:
 | **Ledger Entry Decoding** | Decode raw XDR ledger entries into human-readable JSON |
 | **Transaction Submission** | Sign (via a provided secret key or external signer) and submit transactions to the network |
 | **Contract Deployment** | Deploy Soroban smart contracts via built-in deployer or factory contracts |
+| **Price Feed Queries** | Query decentralized oracle contracts for real-time asset prices |
 | **Vesting Schedule Computation** | Calculate token vesting / timelock release schedules for team, investors, and advisors |
 | **Multi-network** | Targets Mainnet, Testnet, Futurenet, or a custom RPC endpoint |
 | **Soroban CLI Backend** | Delegates complex operations to the official `stellar` / `soroban` CLI for maximum correctness |
@@ -747,6 +749,37 @@ Builds a Stellar transaction for deploying a Soroban smart contract. Supports tw
 
 ---
 
+### `get_price_feed`
+
+Queries a decentralized oracle contract for the price of a base asset in terms of a quote asset. Assumes the oracle contract implements a standard interface with a `get_price(base_asset: Symbol, quote_asset: Symbol) -> i128` function.
+
+**Input:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `contract_id` | `string` | Yes | The Soroban oracle contract address (`C...`) |
+| `base_asset` | `string` | Yes | Base asset symbol (e.g., `USD`) |
+| `quote_asset` | `string` | Yes | Quote asset symbol (e.g., `XLM`) |
+| `network` | `string` | No | Override the network for this call (`mainnet`, `testnet`, `futurenet`) |
+
+**Output:**
+
+```jsonc
+{
+  "contract_id": "CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE",
+  "base_asset": "USD",
+  "quote_asset": "XLM",
+  "price": "1000000",
+  "network": "testnet"
+}
+```
+
+**Example prompt:**
+
+> _"Get the current USD/XLM price from oracle contract `CA3D...` on testnet."_
+
+---
+
 ## Example Prompts & Workflows
 
 These are real-world workflows that become possible once pulsar is connected to your AI assistant.
@@ -934,6 +967,7 @@ npm run typecheck
 - [x] `submit_transaction` — broadcast + wait for result
 - [x] `compute_vesting_schedule` — token vesting / timelock schedule calculator
 - [x] `deploy_contract` — deploy Soroban contracts via built-in deployer or factory pattern
+- [x] `get_price_feed` — query decentralized oracle contracts for real-time asset prices
 - [ ] `get_transaction_history` — paginated history for an account
 - [ ] `stream_events` — subscribe to Soroban contract events
 - [ ] `build_transaction` — construct a Soroban invoke transaction from contract spec + args (without needing pre-built XDR)
