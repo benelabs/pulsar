@@ -1,21 +1,34 @@
 #!/usr/bin/env node
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { CallToolRequestSchema, ListToolsRequestSchema, ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import {
+  CallToolRequestSchema,
+  ListToolsRequestSchema,
+  ErrorCode,
+  McpError,
+} from '@modelcontextprotocol/sdk/types.js';
 
-import { config } from "./config.js";
-import { fetchContractSpec, fetchContractSpecSchema } from "./tools/fetch_contract_spec.js";
+import { config } from './config.js';
+import { fetchContractSpec, fetchContractSpecSchema } from './tools/fetch_contract_spec.js';
 import { submitTransaction } from './tools/submit_transaction.js';
 import { simulateTransaction } from './tools/simulate_transaction.js';
 import { getAccountBalance } from './tools/get_account_balance.js';
 import { computeVestingSchedule } from './tools/compute_vesting_schedule.js';
 import { deployContract } from './tools/deploy_contract.js';
 import {
+  calculateDutchAuctionPrice,
+  calculateEnglishAuctionState,
+} from './tools/auction_compute.js';
+import { safeMathCompute } from './tools/safe_math_tool.js';
+import {
   GetAccountBalanceInputSchema,
   SubmitTransactionInputSchema,
   SimulateTransactionInputSchema,
   ComputeVestingScheduleInputSchema,
   DeployContractInputSchema,
+  CalculateDutchAuctionPriceInputSchema,
+  CalculateEnglishAuctionStateInputSchema,
+  SafeMathComputeInputSchema,
 } from './schemas/tools.js';
 import logger from './logger.js';
 import { PulsarError, PulsarNetworkError, PulsarValidationError } from './errors.js';
@@ -38,7 +51,7 @@ class PulsarServer {
         capabilities: {
           tools: {},
         },
-      },
+      }
     );
 
     this.setupHandlers();
@@ -50,7 +63,8 @@ class PulsarServer {
       tools: [
         {
           name: 'get_account_balance',
-          description: 'Get the current XLM and issued asset balances for a Stellar account. Optionally filter by asset code and/or issuer.',
+          description:
+            'Get the current XLM and issued asset balances for a Stellar account. Optionally filter by asset code and/or issuer.',
           inputSchema: {
             type: 'object',
             properties: {
@@ -116,28 +130,29 @@ class PulsarServer {
           },
         },
         {
-          name: "fetch_contract_spec",
+          name: 'fetch_contract_spec',
           description:
-            "Fetch the ABI/interface spec of a deployed Soroban contract. Returns decoded function signatures, parameter types, and emitted event schemas.",
+            'Fetch the ABI/interface spec of a deployed Soroban contract. Returns decoded function signatures, parameter types, and emitted event schemas.',
           inputSchema: {
-            type: "object",
+            type: 'object',
             properties: {
               contract_id: {
-                type: "string",
-                description: "The Soroban contract address (C...)",
+                type: 'string',
+                description: 'The Soroban contract address (C...)',
               },
               network: {
-                type: "string",
-                enum: ["mainnet", "testnet", "futurenet", "custom"],
-                description: "Override the active network for this call.",
+                type: 'string',
+                enum: ['mainnet', 'testnet', 'futurenet', 'custom'],
+                description: 'Override the active network for this call.',
               },
             },
-            required: ["contract_id"],
+            required: ['contract_id'],
           },
         },
         {
           name: 'simulate_transaction',
-          description: 'Simulates a transaction on the Soroban RPC and returns results, footprint, fees, and events.',
+          description:
+            'Simulates a transaction on the Soroban RPC and returns results, footprint, fees, and events.',
           inputSchema: {
             type: 'object',
             properties: {
@@ -156,7 +171,8 @@ class PulsarServer {
         },
         {
           name: 'compute_vesting_schedule',
-          description: 'Calculate a token vesting / timelock release schedule for team, investors, or advisors. Returns released and unreleased amounts plus a period-by-period breakdown.',
+          description:
+            'Calculate a token vesting / timelock release schedule for team, investors, or advisors. Returns released and unreleased amounts plus a period-by-period breakdown.',
           inputSchema: {
             type: 'object',
             properties: {
@@ -210,23 +226,28 @@ class PulsarServer {
               mode: {
                 type: 'string',
                 enum: ['direct', 'factory'],
-                description: "Deployment mode: 'direct' (built-in deployer) or 'factory' (via factory contract)",
+                description:
+                  "Deployment mode: 'direct' (built-in deployer) or 'factory' (via factory contract)",
               },
               source_account: {
                 type: 'string',
-                description: 'Stellar public key (G...) that will deploy the contract and pay fees.',
+                description:
+                  'Stellar public key (G...) that will deploy the contract and pay fees.',
               },
               wasm_hash: {
                 type: 'string',
-                description: 'SHA-256 hash of the uploaded WASM as 64 hex characters. Required for direct mode.',
+                description:
+                  'SHA-256 hash of the uploaded WASM as 64 hex characters. Required for direct mode.',
               },
               salt: {
                 type: 'string',
-                description: 'Optional 32-byte salt as 64 hex characters for deterministic address. Random if omitted.',
+                description:
+                  'Optional 32-byte salt as 64 hex characters for deterministic address. Random if omitted.',
               },
               factory_contract_id: {
                 type: 'string',
-                description: 'Soroban contract ID (C...) of the factory contract. Required for factory mode.',
+                description:
+                  'Soroban contract ID (C...) of the factory contract. Required for factory mode.',
               },
               deploy_function: {
                 type: 'string',
@@ -234,7 +255,8 @@ class PulsarServer {
               },
               deploy_args: {
                 type: 'array',
-                description: "Arguments for factory deploy function as typed SCVal objects. Each item: { type?: 'symbol'|'string'|'u32'|'i32'|'u64'|'i64'|'u128'|'i128'|'bool'|'address'|'bytes'|'void', value: any }",
+                description:
+                  "Arguments for factory deploy function as typed SCVal objects. Each item: { type?: 'symbol'|'string'|'u32'|'i32'|'u64'|'i64'|'u128'|'i128'|'bool'|'address'|'bytes'|'void', value: any }",
               },
               network: {
                 type: 'string',
@@ -243,6 +265,80 @@ class PulsarServer {
               },
             },
             required: ['mode', 'source_account'],
+          },
+        },
+        {
+          name: 'calculate_dutch_auction_price',
+          description:
+            'Calculate the current price of an asset in a Dutch auction (linear price decay). Useful for NFT drops or fair price discovery.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              start_price: { type: 'number', description: 'Initial auction price.' },
+              reserve_price: { type: 'number', description: 'Minimum/floor price.' },
+              start_timestamp: { type: 'number', description: 'Unix timestamp when decay begins.' },
+              end_timestamp: {
+                type: 'number',
+                description: 'Unix timestamp when price reaches reserve.',
+              },
+              current_timestamp: {
+                type: 'number',
+                description: 'Optional override for current time.',
+              },
+            },
+            required: ['start_price', 'reserve_price', 'start_timestamp', 'end_timestamp'],
+          },
+        },
+        {
+          name: 'calculate_english_auction_state',
+          description: 'Calculate the next bid requirements and state for an English auction.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              current_highest_bid: {
+                type: 'number',
+                description: 'Current top bid (0 if no bids).',
+              },
+              reserve_price: { type: 'number', description: 'Minimum bid to win/start.' },
+              bid_increment: {
+                type: 'number',
+                description: 'Required increase over the current bid.',
+              },
+              bid_increment_type: {
+                type: 'string',
+                enum: ['absolute', 'percentage'],
+                default: 'absolute',
+              },
+              end_timestamp: { type: 'number', description: 'Unix timestamp when auction ends.' },
+              current_timestamp: {
+                type: 'number',
+                description: 'Optional override for current time.',
+              },
+            },
+          },
+        },
+        {
+          name: 'safe_math_compute',
+          description:
+            'Perform safe integer arithmetic with overflow/underflow protection and Soroban-compatible bounds checking (u64, i128, etc.).',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              a: { type: 'string', description: 'First operand (as string).' },
+              b: { type: 'string', description: 'Second operand (as string).' },
+              operation: {
+                type: 'string',
+                enum: ['add', 'sub', 'mul', 'div'],
+                description: 'Arithmetic operation.',
+              },
+              bounds: {
+                type: 'string',
+                enum: ['u32', 'i32', 'u64', 'i64', 'u128', 'i128', 'none'],
+                default: 'none',
+                description: 'Target integer bounds.',
+              },
+            },
+            required: ['a', 'b', 'operation'],
           },
         },
       ],
@@ -258,7 +354,10 @@ class PulsarServer {
           case 'get_account_balance': {
             const parsed = GetAccountBalanceInputSchema.safeParse(args);
             if (!parsed.success) {
-              throw new PulsarValidationError(`Invalid input for get_account_balance`, parsed.error.format());
+              throw new PulsarValidationError(
+                `Invalid input for get_account_balance`,
+                parsed.error.format()
+              );
             }
             const result = await getAccountBalance(parsed.data);
             return {
@@ -274,16 +373,22 @@ class PulsarServer {
           case 'fetch_contract_spec': {
             const parsed = fetchContractSpecSchema.safeParse(args);
             if (!parsed.success) {
-              throw new PulsarValidationError(`Invalid input for fetch_contract_spec`, parsed.error.format());
+              throw new PulsarValidationError(
+                `Invalid input for fetch_contract_spec`,
+                parsed.error.format()
+              );
             }
             const result = await fetchContractSpec(parsed.data);
-            return { content: [{ type: "text", text: JSON.stringify(result) }] };
+            return { content: [{ type: 'text', text: JSON.stringify(result) }] };
           }
 
           case 'submit_transaction': {
             const parsed = SubmitTransactionInputSchema.safeParse(args);
             if (!parsed.success) {
-              throw new PulsarValidationError(`Invalid input for submit_transaction`, parsed.error.format());
+              throw new PulsarValidationError(
+                `Invalid input for submit_transaction`,
+                parsed.error.format()
+              );
             }
             const result = await submitTransaction(parsed.data);
             return {
@@ -294,7 +399,10 @@ class PulsarServer {
           case 'simulate_transaction': {
             const parsed = SimulateTransactionInputSchema.safeParse(args);
             if (!parsed.success) {
-              throw new PulsarValidationError(`Invalid input for simulate_transaction`, parsed.error.format());
+              throw new PulsarValidationError(
+                `Invalid input for simulate_transaction`,
+                parsed.error.format()
+              );
             }
             const result = await simulateTransaction(parsed.data);
             return {
@@ -305,7 +413,10 @@ class PulsarServer {
           case 'compute_vesting_schedule': {
             const parsed = ComputeVestingScheduleInputSchema.safeParse(args);
             if (!parsed.success) {
-              throw new PulsarValidationError(`Invalid input for compute_vesting_schedule`, parsed.error.format());
+              throw new PulsarValidationError(
+                `Invalid input for compute_vesting_schedule`,
+                parsed.error.format()
+              );
             }
             const result = await computeVestingSchedule(parsed.data);
             return {
@@ -316,12 +427,51 @@ class PulsarServer {
           case 'deploy_contract': {
             const parsed = DeployContractInputSchema.safeParse(args);
             if (!parsed.success) {
-              throw new PulsarValidationError(`Invalid input for deploy_contract`, parsed.error.format());
+              throw new PulsarValidationError(
+                `Invalid input for deploy_contract`,
+                parsed.error.format()
+              );
             }
             const result = await deployContract(parsed.data);
             return {
               content: [{ type: 'text', text: JSON.stringify(result) }],
             };
+          }
+
+          case 'calculate_dutch_auction_price': {
+            const parsed = CalculateDutchAuctionPriceInputSchema.safeParse(args);
+            if (!parsed.success) {
+              throw new PulsarValidationError(
+                `Invalid input for calculate_dutch_auction_price`,
+                parsed.error.format()
+              );
+            }
+            const result = await calculateDutchAuctionPrice(parsed.data);
+            return { content: [{ type: 'text', text: JSON.stringify(result) }] };
+          }
+
+          case 'calculate_english_auction_state': {
+            const parsed = CalculateEnglishAuctionStateInputSchema.safeParse(args);
+            if (!parsed.success) {
+              throw new PulsarValidationError(
+                `Invalid input for calculate_english_auction_state`,
+                parsed.error.format()
+              );
+            }
+            const result = await calculateEnglishAuctionState(parsed.data);
+            return { content: [{ type: 'text', text: JSON.stringify(result) }] };
+          }
+
+          case 'safe_math_compute': {
+            const parsed = SafeMathComputeInputSchema.safeParse(args);
+            if (!parsed.success) {
+              throw new PulsarValidationError(
+                `Invalid input for safe_math_compute`,
+                parsed.error.format()
+              );
+            }
+            const result = await safeMathCompute(parsed.data);
+            return { content: [{ type: 'text', text: JSON.stringify(result) }] };
           }
 
           default:
@@ -343,10 +493,9 @@ class PulsarServer {
       throw error;
     } else {
       // Convert unknown errors to PulsarNetworkError as per requirements
-      pulsarError = new PulsarNetworkError(
-        error instanceof Error ? error.message : String(error),
-        { originalError: error }
-      );
+      pulsarError = new PulsarNetworkError(error instanceof Error ? error.message : String(error), {
+        originalError: error,
+      });
     }
 
     logger.error(
@@ -384,9 +533,7 @@ class PulsarServer {
   async run() {
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
-    logger.info(
-      `pulsar MCP server v1.0.0 is running on ${config.stellarNetwork}...`,
-    );
+    logger.info(`pulsar MCP server v1.0.0 is running on ${config.stellarNetwork}...`);
   }
 }
 
@@ -395,4 +542,3 @@ pulsar.run().catch((error) => {
   logger.fatal({ error }, '❌ Fatal error in pulsar server');
   process.exit(1);
 });
-
