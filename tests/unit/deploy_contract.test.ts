@@ -24,9 +24,13 @@ describe('deployContract', () => {
   });
 
   function mockAccount(sequence = '123456789') {
+    let currentSequence = BigInt(sequence);
     mockServer.loadAccount.mockResolvedValue({
       accountId: () => SOURCE_ACCOUNT,
-      sequenceNumber: () => sequence,
+      sequenceNumber: () => currentSequence.toString(),
+      incrementSequenceNumber: () => {
+        currentSequence += 1n;
+      },
     });
   }
 

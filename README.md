@@ -135,6 +135,7 @@ There is currently **no community-driven MCP server** for Stellar, which means:
 - **Soroban CLI as a backend** — Rather than re-implementing XDR serialisation from scratch, the server shells out to the official `stellar` CLI for operations that require it, ensuring byte-level correctness.
 - **Horizon + Soroban RPC** — Account data is fetched from Horizon (the REST layer), while contract interaction goes through the Soroban JSON-RPC endpoint.
 - **Zod schemas** — Every tool input and output is validated with [Zod](https://zod.dev) at runtime, preventing malformed data from reaching the network.
+- **Central output contracts** — Tool outputs are validated in a shared dispatcher path (`TOOL_OUTPUT_SCHEMAS`) before being returned to MCP clients, ensuring contract consistency across all tools.
 
 ---
 

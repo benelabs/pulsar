@@ -1,49 +1,46 @@
-import { simulateTransaction } from "../tools/simulate_transaction";
-import { getAccountBalance } from "../tools/get_account_balance";
-import { logger } from "../logger";
-import { performance } from "perf_hooks";
+import { performance } from 'node:perf_hooks';
+
+import logger from '../logger.js';
+import { simulateTransaction } from '../tools/simulate_transaction.js';
 
 /**
  * Benchmarks gas (CPU/Memory) usage for a Stellar/Soroban contract execution.
  * Compares Pulsar-reported gas with actual resource usage.
- * @param contractId - The contract to benchmark
- * @param method - The contract method to invoke
- * @param args - Arguments for the contract method
- * @param account - The account executing the contract
+ * @param xdr - Base64 transaction envelope XDR to simulate
+ * @param network - Optional Stellar network override
  */
 export async function benchmarkGas({
-  contractId,
-  method,
-  args = [],
-  account,
+  xdr,
+  network,
 }: {
-  contractId: string;
-  method: string;
-  args?: any[];
-  account: string;
+  xdr: string;
+  network?: 'mainnet' | 'testnet' | 'futurenet' | 'custom';
 }) {
-  logger.info("Starting gas benchmarking...");
+  logger.info('Starting gas benchmarking...');
   const startMem = process.memoryUsage().rss;
   const start = performance.now();
   let simulationResult;
   let error;
   try {
-    simulationResult = await simulateTransaction({ contractId, method, args, account });
+    simulationResult = await simulateTransaction({ xdr, network });
   } catch (e) {
     error = e;
-    logger.error("Simulation failed", e);
+    logger.error({ error: e }, 'Simulation failed');
   }
   const end = performance.now();
   const endMem = process.memoryUsage().rss;
   const cpuMs = end - start;
   const memDelta = endMem - startMem;
-  let pulsarGas = simulationResult?.gas ?? null;
-  logger.info("Benchmark complete", {
-    cpuMs,
-    memDelta,
-    pulsarGas,
-    error,
-  });
+  const pulsarGas = simulationResult?.cost?.cpu_instructions ?? null;
+  logger.info(
+    {
+      cpuMs,
+      memDelta,
+      pulsarGas,
+      error,
+    },
+    'Benchmark complete'
+  );
   return {
     cpuMs,
     memDelta,
@@ -51,14 +48,4 @@ export async function benchmarkGas({
     error,
     simulationResult,
   };
-}
-
-if (require.main === module) {
-  // CLI usage: node benchmark_gas.js <contractId> <method> <account> [args...]
-  (async () => {
-    const [contractId, method, account, ...args] = process.argv.slice(2);
-    const result = await benchmarkGas({ contractId, method, args, account });
-    console.log(JSON.stringify(result, null, 2));
-    process.exit(result.error ? 1 : 0);
-  })();
 }
