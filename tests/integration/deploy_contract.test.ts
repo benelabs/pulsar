@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
 import { deployContract } from '../../src/tools/deploy_contract.js';
+
 import {
   RUN_INTEGRATION_TESTS,
   TEST_ACCOUNT_PUBLIC_KEY,

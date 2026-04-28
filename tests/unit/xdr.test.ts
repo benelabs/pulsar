@@ -1,3 +1,4 @@
+import { spawn } from 'node:child_process';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import { decodeLedgerEntry } from '../../src/services/xdr.js';
@@ -6,8 +7,6 @@ import { decodeLedgerEntry } from '../../src/services/xdr.js';
 vi.mock('child_process', () => ({
   spawn: vi.fn(),
 }));
-
-import { spawn } from 'child_process';
 
 // Mock config
 vi.mock('../../src/config.js', () => ({

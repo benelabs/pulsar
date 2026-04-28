@@ -10,12 +10,15 @@ import { simulateTransaction } from './tools/simulate_transaction.js';
 import { getAccountBalance } from './tools/get_account_balance.js';
 import { computeVestingSchedule } from './tools/compute_vesting_schedule.js';
 import { deployContract } from './tools/deploy_contract.js';
+import { computeInterestRates, calculateBorrowingCapacity } from './tools/lending_compute.js';
 import {
   GetAccountBalanceInputSchema,
   SubmitTransactionInputSchema,
   SimulateTransactionInputSchema,
   ComputeVestingScheduleInputSchema,
   DeployContractInputSchema,
+  ComputeInterestRatesInputSchema,
+  CalculateBorrowingCapacityInputSchema,
 } from './schemas/tools.js';
 import logger from './logger.js';
 import { PulsarError, PulsarNetworkError, PulsarValidationError } from './errors.js';
@@ -242,10 +245,41 @@ class PulsarServer {
                 description: 'Override the configured network for this call.',
               },
             },
-            required: ['mode', 'source_account'],
-          },
-        },
-      ],
+      required: ['mode', 'source_account'],
+    },
+  },
+  {
+    name: 'compute_interest_rates',
+    description: 'Calculate borrow and supply interest rates using a Jump Rate Model (standard for protocols like Aave). Useful for simulating lending pool dynamics.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        utilization_rate: { type: 'number', description: 'Pool utilization (debt / liquidity), 0 to 1.' },
+        base_rate: { type: 'number', description: 'Base borrow rate (e.g. 0.02 for 2%).' },
+        multiplier: { type: 'number', description: 'Interest rate slope below kink.' },
+        jump_multiplier: { type: 'number', description: 'Interest rate slope above kink.' },
+        kink: { type: 'number', description: 'Utilization threshold for jump multiplier (default 0.8).', default: 0.8 },
+      },
+      required: ['utilization_rate', 'base_rate', 'multiplier', 'jump_multiplier'],
+    },
+  },
+  {
+    name: 'calculate_borrowing_capacity',
+    description: 'Calculate max borrow amount, health factor, and liquidation price for a collateralized position.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        collateral_amount: { type: 'number' },
+        collateral_price: { type: 'number', description: 'Asset price in USD.' },
+        debt_price: { type: 'number', description: 'Asset price in USD.' },
+        ltv: { type: 'number', description: 'Loan-to-Value ratio, 0 to 1.' },
+        liquidation_threshold: { type: 'number', description: 'Threshold where liquidation occurs, 0 to 1.' },
+        current_debt: { type: 'number', description: 'Existing debt in asset units (default 0).', default: 0 },
+      },
+      required: ['collateral_amount', 'collateral_price', 'debt_price', 'ltv', 'liquidation_threshold'],
+    },
+  },
+],
     }));
 
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
@@ -323,6 +357,25 @@ class PulsarServer {
               content: [{ type: 'text', text: JSON.stringify(result) }],
             };
           }
+
+          case 'compute_interest_rates': {
+            const parsed = ComputeInterestRatesInputSchema.safeParse(args);
+            if (!parsed.success) {
+              throw new PulsarValidationError(`Invalid input for compute_interest_rates`, parsed.error.format());
+            }
+            const result = await computeInterestRates(parsed.data);
+            return { content: [{ type: 'text', text: JSON.stringify(result) }] };
+          }
+
+          case 'calculate_borrowing_capacity': {
+            const parsed = CalculateBorrowingCapacityInputSchema.safeParse(args);
+            if (!parsed.success) {
+              throw new PulsarValidationError(`Invalid input for calculate_borrowing_capacity`, parsed.error.format());
+            }
+            const result = await calculateBorrowingCapacity(parsed.data);
+            return { content: [{ type: 'text', text: JSON.stringify(result) }] };
+          }
+
 
           default:
             throw new McpError(ErrorCode.MethodNotFound, `Tool not found: ${name}`);

@@ -215,3 +215,64 @@ export const DeployContractInputSchema = z.object({
 
 export type DeployContractInput = z.infer<typeof DeployContractInputSchema>;
 
+/**
+ * Schema for compute_interest_rates tool
+ *
+ * Inputs:
+ * - utilization_rate: Current pool utilization (0 to 1)
+ * - base_rate: Base borrowing rate
+ * - multiplier: Rate multiplier below kink
+ * - jump_multiplier: Rate multiplier above kink
+ * - kink: Utilization point where the jump multiplier kicks in
+ */
+export const ComputeInterestRatesInputSchema = z.object({
+  utilization_rate: z
+    .number()
+    .min(0)
+    .max(1)
+    .describe("Current pool utilization (debt / total liquidity)"),
+  base_rate: z.number().nonnegative().describe("Minimum borrowing rate"),
+  multiplier: z
+    .number()
+    .nonnegative()
+    .describe("Interest rate slope before kink"),
+  jump_multiplier: z
+    .number()
+    .nonnegative()
+    .describe("Interest rate slope after kink"),
+  kink: z
+    .number()
+    .min(0)
+    .max(1)
+    .default(0.8)
+    .describe("Utilization threshold for jump multiplier"),
+});
+
+export type ComputeInterestRatesInput = z.infer<
+  typeof ComputeInterestRatesInputSchema
+>;
+
+/**
+ * Schema for calculate_borrowing_capacity tool
+ *
+ * Inputs:
+ * - collateral_amount: Amount of collateral deposited
+ * - collateral_price: USD price of collateral asset
+ * - debt_price: USD price of borrowed asset
+ * - ltv: Loan-to-Value ratio (0 to 1)
+ * - liquidation_threshold: Health factor threshold (0 to 1)
+ * - current_debt: Existing debt in asset units (default: 0)
+ */
+export const CalculateBorrowingCapacityInputSchema = z.object({
+  collateral_amount: z.number().positive(),
+  collateral_price: z.number().positive(),
+  debt_price: z.number().positive(),
+  ltv: z.number().min(0).max(1),
+  liquidation_threshold: z.number().min(0).max(1),
+  current_debt: z.number().nonnegative().default(0),
+});
+
+export type CalculateBorrowingCapacityInput = z.infer<
+  typeof CalculateBorrowingCapacityInputSchema
+>;
+
