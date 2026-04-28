@@ -546,6 +546,27 @@ If the simulation fails (e.g. contract panics, insufficient balance), the `statu
 
 ---
 
+### `simulate_transactions_sequence`
+
+Simulate a sequence of Soroban transactions sequentially against the network. Iterates over an array of XDRs and returns a detailed array of results, errors, footprints, and fee estimates for each transaction.
+
+**Input:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `xdrs` | `array of strings` | Yes | An array of base64-encoded transaction envelope XDRs to simulate sequentially |
+| `network` | `string` | No | Override the network for this sequence |
+
+**Output:**
+
+Returns an array of simulation outputs. Each element follows the same structure as `simulate_transaction` above, and includes a `status` field (`"SUCCESS"`, `"ERROR"`, or `"RESTORE_NEEDED"`).
+
+**Example prompt:**
+
+> _"Simulate this sequence of transaction XDRs sequentially and list their costs and any errors."_
+
+---
+
 ### `decode_ledger_entry`
 
 Decode a raw base64-encoded XDR ledger entry into a human-readable JSON structure. Useful for inspecting persistent storage slots of Soroban contracts, or debugging what is actually stored on-chain.
