@@ -1,10 +1,8 @@
-import { config } from "../config.js";
-import {
-  GetAccountBalanceInputSchema,
-} from "../schemas/tools.js";
-import { getHorizonServer } from "../services/horizon.js";
-import { PulsarNetworkError, PulsarValidationError } from "../errors.js";
-import type { McpToolHandler } from "../types.js";
+import { config } from '../config.js';
+import { GetAccountBalanceInputSchema } from '../schemas/tools.js';
+import { getHorizonServer } from '../services/horizon.js';
+import { PulsarNetworkError, PulsarValidationError } from '../errors.js';
+import type { McpToolHandler } from '../types.js';
 
 export interface Balance {
   asset_type: string;
@@ -23,14 +21,14 @@ export interface GetAccountBalanceOutput {
  * Queries Horizon for an account's XLM and asset balances.
  * Returns structured JSON.
  */
-export const getAccountBalance: McpToolHandler<
-  typeof GetAccountBalanceInputSchema
-> = async (input: unknown) => {
+export const getAccountBalance: McpToolHandler<typeof GetAccountBalanceInputSchema> = async (
+  input: unknown
+) => {
   // Validate input schema
   const validatedInput = GetAccountBalanceInputSchema.safeParse(input);
   if (!validatedInput.success) {
     throw new PulsarValidationError(
-      "Invalid input for get_account_balance",
+      'Invalid input for get_account_balance',
       validatedInput.error.format()
     );
   }
@@ -64,15 +62,14 @@ export const getAccountBalance: McpToolHandler<
   } catch (err: any) {
     // Handle 404 (account not found)
     if (err.response && err.response.status === 404) {
-      throw new PulsarNetworkError(
-        "Account not found — it may not be funded yet",
-        { status: 404, account_id }
-      );
+      throw new PulsarNetworkError('Account not found — it may not be funded yet', {
+        status: 404,
+        account_id,
+      });
     }
 
-    throw new PulsarNetworkError(
-      err.message || "Failed to load account balance",
-      { originalError: err }
-    );
+    throw new PulsarNetworkError(err.message || 'Failed to load account balance', {
+      originalError: err,
+    });
   }
 };

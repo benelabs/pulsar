@@ -1,3 +1,5 @@
+import { spawn } from 'node:child_process';
+
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import { decodeLedgerEntry } from '../../src/services/xdr.js';
@@ -6,8 +8,6 @@ import { decodeLedgerEntry } from '../../src/services/xdr.js';
 vi.mock('child_process', () => ({
   spawn: vi.fn(),
 }));
-
-import { spawn } from 'child_process';
 
 // Mock config
 vi.mock('../../src/config.js', () => ({
@@ -78,7 +78,9 @@ describe('XDR Service', () => {
       const validXdr = 'AAAAAQ==';
       const decodedOutput = JSON.stringify({ account_id: 'GBBD...', balance: '1000' });
 
-      mockSpawn.mockReturnValue(createMockChildProcess(0, decodedOutput, '') as unknown as ReturnType<typeof spawn>);
+      mockSpawn.mockReturnValue(
+        createMockChildProcess(0, decodedOutput, '') as unknown as ReturnType<typeof spawn>
+      );
 
       const result = await decodeLedgerEntry(validXdr, 'account');
 
@@ -99,7 +101,9 @@ describe('XDR Service', () => {
       const validXdr = 'AAAAAQ==';
       const errorOutput = 'Error: Invalid XDR format';
 
-      mockSpawn.mockReturnValue(createMockChildProcess(1, '', errorOutput) as unknown as ReturnType<typeof spawn>);
+      mockSpawn.mockReturnValue(
+        createMockChildProcess(1, '', errorOutput) as unknown as ReturnType<typeof spawn>
+      );
 
       const result = await decodeLedgerEntry(validXdr);
 
@@ -113,7 +117,9 @@ describe('XDR Service', () => {
       const validXdr = 'AAAAAQ==';
       const decodedOutput = JSON.stringify({ seq_num: '123456', balance: '1000' });
 
-      mockSpawn.mockReturnValue(createMockChildProcess(0, decodedOutput, '') as unknown as ReturnType<typeof spawn>);
+      mockSpawn.mockReturnValue(
+        createMockChildProcess(0, decodedOutput, '') as unknown as ReturnType<typeof spawn>
+      );
 
       const result = await decodeLedgerEntry(validXdr);
 
@@ -130,7 +136,9 @@ describe('XDR Service', () => {
         durability: 'persistent',
       });
 
-      mockSpawn.mockReturnValue(createMockChildProcess(0, decodedOutput, '') as unknown as ReturnType<typeof spawn>);
+      mockSpawn.mockReturnValue(
+        createMockChildProcess(0, decodedOutput, '') as unknown as ReturnType<typeof spawn>
+      );
 
       const result = await decodeLedgerEntry(validXdr);
 

@@ -1,15 +1,21 @@
 #!/usr/bin/env node
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { CallToolRequestSchema, ListToolsRequestSchema, ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import {
+  CallToolRequestSchema,
+  ListToolsRequestSchema,
+  ErrorCode,
+  McpError,
+} from '@modelcontextprotocol/sdk/types.js';
 
-import { config } from "./config.js";
-import { fetchContractSpec, fetchContractSpecSchema } from "./tools/fetch_contract_spec.js";
+import { config } from './config.js';
+import { fetchContractSpec, fetchContractSpecSchema } from './tools/fetch_contract_spec.js';
 import { submitTransaction } from './tools/submit_transaction.js';
 import { simulateTransaction } from './tools/simulate_transaction.js';
 import { getAccountBalance } from './tools/get_account_balance.js';
 import { computeVestingSchedule } from './tools/compute_vesting_schedule.js';
 import { deployContract } from './tools/deploy_contract.js';
+import { decodeLedgerEntryTool, decodeLedgerEntrySchema } from './tools/decode_ledger_entry.js';
 import {
   GetAccountBalanceInputSchema,
   SubmitTransactionInputSchema,
@@ -38,7 +44,7 @@ class PulsarServer {
         capabilities: {
           tools: {},
         },
-      },
+      }
     );
 
     this.setupHandlers();
@@ -50,7 +56,8 @@ class PulsarServer {
       tools: [
         {
           name: 'get_account_balance',
-          description: 'Get the current XLM and issued asset balances for a Stellar account. Optionally filter by asset code and/or issuer.',
+          description:
+            'Get the current XLM and issued asset balances for a Stellar account. Optionally filter by asset code and/or issuer.',
           inputSchema: {
             type: 'object',
             properties: {
@@ -116,28 +123,29 @@ class PulsarServer {
           },
         },
         {
-          name: "fetch_contract_spec",
+          name: 'fetch_contract_spec',
           description:
-            "Fetch the ABI/interface spec of a deployed Soroban contract. Returns decoded function signatures, parameter types, and emitted event schemas.",
+            'Fetch the ABI/interface spec of a deployed Soroban contract. Returns decoded function signatures, parameter types, and emitted event schemas.',
           inputSchema: {
-            type: "object",
+            type: 'object',
             properties: {
               contract_id: {
-                type: "string",
-                description: "The Soroban contract address (C...)",
+                type: 'string',
+                description: 'The Soroban contract address (C...)',
               },
               network: {
-                type: "string",
-                enum: ["mainnet", "testnet", "futurenet", "custom"],
-                description: "Override the active network for this call.",
+                type: 'string',
+                enum: ['mainnet', 'testnet', 'futurenet', 'custom'],
+                description: 'Override the active network for this call.',
               },
             },
-            required: ["contract_id"],
+            required: ['contract_id'],
           },
         },
         {
           name: 'simulate_transaction',
-          description: 'Simulates a transaction on the Soroban RPC and returns results, footprint, fees, and events.',
+          description:
+            'Simulates a transaction on the Soroban RPC and returns results, footprint, fees, and events.',
           inputSchema: {
             type: 'object',
             properties: {
@@ -156,7 +164,8 @@ class PulsarServer {
         },
         {
           name: 'compute_vesting_schedule',
-          description: 'Calculate a token vesting / timelock release schedule for team, investors, or advisors. Returns released and unreleased amounts plus a period-by-period breakdown.',
+          description:
+            'Calculate a token vesting / timelock release schedule for team, investors, or advisors. Returns released and unreleased amounts plus a period-by-period breakdown.',
           inputSchema: {
             type: 'object',
             properties: {
@@ -210,23 +219,28 @@ class PulsarServer {
               mode: {
                 type: 'string',
                 enum: ['direct', 'factory'],
-                description: "Deployment mode: 'direct' (built-in deployer) or 'factory' (via factory contract)",
+                description:
+                  "Deployment mode: 'direct' (built-in deployer) or 'factory' (via factory contract)",
               },
               source_account: {
                 type: 'string',
-                description: 'Stellar public key (G...) that will deploy the contract and pay fees.',
+                description:
+                  'Stellar public key (G...) that will deploy the contract and pay fees.',
               },
               wasm_hash: {
                 type: 'string',
-                description: 'SHA-256 hash of the uploaded WASM as 64 hex characters. Required for direct mode.',
+                description:
+                  'SHA-256 hash of the uploaded WASM as 64 hex characters. Required for direct mode.',
               },
               salt: {
                 type: 'string',
-                description: 'Optional 32-byte salt as 64 hex characters for deterministic address. Random if omitted.',
+                description:
+                  'Optional 32-byte salt as 64 hex characters for deterministic address. Random if omitted.',
               },
               factory_contract_id: {
                 type: 'string',
-                description: 'Soroban contract ID (C...) of the factory contract. Required for factory mode.',
+                description:
+                  'Soroban contract ID (C...) of the factory contract. Required for factory mode.',
               },
               deploy_function: {
                 type: 'string',
@@ -234,7 +248,8 @@ class PulsarServer {
               },
               deploy_args: {
                 type: 'array',
-                description: "Arguments for factory deploy function as typed SCVal objects. Each item: { type?: 'symbol'|'string'|'u32'|'i32'|'u64'|'i64'|'u128'|'i128'|'bool'|'address'|'bytes'|'void', value: any }",
+                description:
+                  "Arguments for factory deploy function as typed SCVal objects. Each item: { type?: 'symbol'|'string'|'u32'|'i32'|'u64'|'i64'|'u128'|'i128'|'bool'|'address'|'bytes'|'void', value: any }",
               },
               network: {
                 type: 'string',
@@ -243,6 +258,27 @@ class PulsarServer {
               },
             },
             required: ['mode', 'source_account'],
+          },
+        },
+        {
+          name: 'decode_ledger_entry',
+          description:
+            'Decode a raw base64-encoded XDR ledger entry into a human-readable JSON structure.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              xdr: {
+                type: 'string',
+                description: 'Base64-encoded XDR of the ledger entry (key or value).',
+              },
+              entry_type: {
+                type: 'string',
+                enum: ['account', 'trustline', 'contract_data', 'contract_code', 'offer', 'data'],
+                description:
+                  'Hint for decoding: account, trustline, contract_data, contract_code, offer, data.',
+              },
+            },
+            required: ['xdr'],
           },
         },
       ],
@@ -258,7 +294,10 @@ class PulsarServer {
           case 'get_account_balance': {
             const parsed = GetAccountBalanceInputSchema.safeParse(args);
             if (!parsed.success) {
-              throw new PulsarValidationError(`Invalid input for get_account_balance`, parsed.error.format());
+              throw new PulsarValidationError(
+                `Invalid input for get_account_balance`,
+                parsed.error.format()
+              );
             }
             const result = await getAccountBalance(parsed.data);
             return {
@@ -274,16 +313,22 @@ class PulsarServer {
           case 'fetch_contract_spec': {
             const parsed = fetchContractSpecSchema.safeParse(args);
             if (!parsed.success) {
-              throw new PulsarValidationError(`Invalid input for fetch_contract_spec`, parsed.error.format());
+              throw new PulsarValidationError(
+                `Invalid input for fetch_contract_spec`,
+                parsed.error.format()
+              );
             }
             const result = await fetchContractSpec(parsed.data);
-            return { content: [{ type: "text", text: JSON.stringify(result) }] };
+            return { content: [{ type: 'text', text: JSON.stringify(result) }] };
           }
 
           case 'submit_transaction': {
             const parsed = SubmitTransactionInputSchema.safeParse(args);
             if (!parsed.success) {
-              throw new PulsarValidationError(`Invalid input for submit_transaction`, parsed.error.format());
+              throw new PulsarValidationError(
+                `Invalid input for submit_transaction`,
+                parsed.error.format()
+              );
             }
             const result = await submitTransaction(parsed.data);
             return {
@@ -294,7 +339,10 @@ class PulsarServer {
           case 'simulate_transaction': {
             const parsed = SimulateTransactionInputSchema.safeParse(args);
             if (!parsed.success) {
-              throw new PulsarValidationError(`Invalid input for simulate_transaction`, parsed.error.format());
+              throw new PulsarValidationError(
+                `Invalid input for simulate_transaction`,
+                parsed.error.format()
+              );
             }
             const result = await simulateTransaction(parsed.data);
             return {
@@ -305,7 +353,10 @@ class PulsarServer {
           case 'compute_vesting_schedule': {
             const parsed = ComputeVestingScheduleInputSchema.safeParse(args);
             if (!parsed.success) {
-              throw new PulsarValidationError(`Invalid input for compute_vesting_schedule`, parsed.error.format());
+              throw new PulsarValidationError(
+                `Invalid input for compute_vesting_schedule`,
+                parsed.error.format()
+              );
             }
             const result = await computeVestingSchedule(parsed.data);
             return {
@@ -316,9 +367,25 @@ class PulsarServer {
           case 'deploy_contract': {
             const parsed = DeployContractInputSchema.safeParse(args);
             if (!parsed.success) {
-              throw new PulsarValidationError(`Invalid input for deploy_contract`, parsed.error.format());
+              throw new PulsarValidationError(
+                `Invalid input for deploy_contract`,
+                parsed.error.format()
+              );
             }
             const result = await deployContract(parsed.data);
+            return {
+              content: [{ type: 'text', text: JSON.stringify(result) }],
+            };
+          }
+          case 'decode_ledger_entry': {
+            const parsed = decodeLedgerEntrySchema.safeParse(args);
+            if (!parsed.success) {
+              throw new PulsarValidationError(
+                `Invalid input for decode_ledger_entry`,
+                parsed.error.format()
+              );
+            }
+            const result = await decodeLedgerEntryTool(parsed.data);
             return {
               content: [{ type: 'text', text: JSON.stringify(result) }],
             };
@@ -343,10 +410,9 @@ class PulsarServer {
       throw error;
     } else {
       // Convert unknown errors to PulsarNetworkError as per requirements
-      pulsarError = new PulsarNetworkError(
-        error instanceof Error ? error.message : String(error),
-        { originalError: error }
-      );
+      pulsarError = new PulsarNetworkError(error instanceof Error ? error.message : String(error), {
+        originalError: error,
+      });
     }
 
     logger.error(
@@ -384,9 +450,7 @@ class PulsarServer {
   async run() {
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
-    logger.info(
-      `pulsar MCP server v1.0.0 is running on ${config.stellarNetwork}...`,
-    );
+    logger.info(`pulsar MCP server v1.0.0 is running on ${config.stellarNetwork}...`);
   }
 }
 
@@ -395,4 +459,3 @@ pulsar.run().catch((error) => {
   logger.fatal({ error }, '❌ Fatal error in pulsar server');
   process.exit(1);
 });
-

@@ -898,6 +898,9 @@ npm test
 # Run integration tests (requires testnet access)
 npm run test:integration
 
+# Run end-to-end (E2E) tests (requires testnet access and stellar CLI)
+RUN_INTEGRATION_TESTS=true npx vitest tests/e2e
+
 # Run with coverage
 npm run test:coverage
 

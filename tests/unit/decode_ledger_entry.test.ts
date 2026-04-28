@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-import { decodeLedgerEntryTool, decodeLedgerEntrySchema } from '../../src/tools/decode_ledger_entry.js';
+import {
+  decodeLedgerEntryTool,
+  decodeLedgerEntrySchema,
+} from '../../src/tools/decode_ledger_entry.js';
 import * as xdrModule from '../../src/services/xdr.js';
 
 // Mock the xdr module
@@ -33,9 +36,16 @@ describe('decode_ledger_entry tool', () => {
     });
 
     it('should accept all valid entry_type values', () => {
-      const validTypes = ['account', 'trustline', 'contract_data', 'contract_code', 'offer', 'data'];
+      const validTypes = [
+        'account',
+        'trustline',
+        'contract_data',
+        'contract_code',
+        'offer',
+        'data',
+      ];
       for (const entry_type of validTypes) {
-        const input = { xdr: 'AAAAAQ==', entry_type: entry_type as typeof validTypes[number] };
+        const input = { xdr: 'AAAAAQ==', entry_type: entry_type as (typeof validTypes)[number] };
         const result = decodeLedgerEntrySchema.safeParse(input);
         expect(result.success).toBe(true);
       }

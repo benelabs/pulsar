@@ -2,11 +2,7 @@ import { expect, it, beforeAll } from 'vitest';
 
 import { getAccountBalance } from '../../src/tools/get_account_balance.js';
 
-import {
-  describeIfIntegration,
-  fundWithFriendbot,
-  TEST_ACCOUNT_PUBLIC_KEY,
-} from './setup.js';
+import { describeIfIntegration, fundWithFriendbot, TEST_ACCOUNT_PUBLIC_KEY } from './setup.js';
 
 /**
  * Integration tests for get_account_balance tool.
@@ -30,7 +26,7 @@ describeIfIntegration('get_account_balance (Integration)', () => {
   it('should fetch account balance from testnet', async () => {
     const result = (await getAccountBalance({
       account_id: TEST_ACCOUNT_PUBLIC_KEY,
-      network: 'testnet'
+      network: 'testnet',
     })) as any;
 
     expect(result.account_id).toBe(TEST_ACCOUNT_PUBLIC_KEY);
@@ -38,9 +34,7 @@ describeIfIntegration('get_account_balance (Integration)', () => {
     expect(Array.isArray(result.balances)).toBe(true);
 
     // Should have at least XLM balance (native)
-    const xlmBalance = result.balances.find(
-      (b: any) => b.asset_type === 'native'
-    );
+    const xlmBalance = result.balances.find((b: any) => b.asset_type === 'native');
     expect(xlmBalance).toBeDefined();
     expect(parseFloat(xlmBalance!.balance)).toBeGreaterThan(0);
   });
@@ -48,9 +42,11 @@ describeIfIntegration('get_account_balance (Integration)', () => {
   it('should return error for non-existent account', async () => {
     const nonExistentKey = 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHG';
 
-    await expect(getAccountBalance({ 
-      account_id: nonExistentKey,
-      network: 'testnet'
-    })).rejects.toThrow("Account not found — it may not be funded yet");
+    await expect(
+      getAccountBalance({
+        account_id: nonExistentKey,
+        network: 'testnet',
+      })
+    ).rejects.toThrow('Account not found — it may not be funded yet');
   });
 });
