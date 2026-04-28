@@ -16,6 +16,7 @@ import { getAccountBalance } from './tools/get_account_balance.js';
 import { computeVestingSchedule } from './tools/compute_vesting_schedule.js';
 import { deployContract } from './tools/deploy_contract.js';
 import { manageSubscription } from './tools/manage_subscription.js';
+import { analyzeContractStorage } from './tools/analyze_contract_storage.js';
 import {
   GetAccountBalanceInputSchema,
   SubmitTransactionInputSchema,
@@ -23,6 +24,7 @@ import {
   ComputeVestingScheduleInputSchema,
   DeployContractInputSchema,
   ManageSubscriptionInputSchema,
+  AnalyzeContractStorageInputSchema,
 } from './schemas/tools.js';
 import logger from './logger.js';
 import { PulsarError, PulsarNetworkError, PulsarValidationError } from './errors.js';
@@ -335,6 +337,50 @@ class PulsarServer {
             ],
           },
         },
+        {
+          name: 'analyze_contract_storage',
+          description:
+            "Analyses a deployed Soroban contract's on-chain ledger storage footprint. " +
+            'Fetches the contract instance entry (and optional additional ledger keys) from the ' +
+            'Soroban RPC, measures per-entry byte sizes and TTLs, and returns actionable ' +
+            'optimisation recommendations to reduce ledger-rent costs for large maps and datasets. ' +
+            'Common recommendations include: chunked/paginated map storage, TTL extension warnings, ' +
+            'and migration from instance to persistent storage for infrequently accessed data.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              contract_id: {
+                type: 'string',
+                description: 'The Soroban contract address (C…, 56 chars).',
+              },
+              network: {
+                type: 'string',
+                enum: ['mainnet', 'testnet', 'futurenet', 'custom'],
+                description: 'Override the configured network for this call.',
+              },
+              additional_keys: {
+                type: 'array',
+                items: { type: 'string' },
+                description:
+                  'Optional list of base64-encoded XDR ledger keys to include in the analysis ' +
+                  '(max 50). Use this to analyse specific persistent/temporary entries beyond ' +
+                  'the default instance entry.',
+              },
+              size_threshold_bytes: {
+                type: 'number',
+                default: 1024,
+                description:
+                  'Entries larger than this byte count are flagged as oversized (default: 1 024).',
+              },
+              include_recommendations: {
+                type: 'boolean',
+                default: true,
+                description: 'Whether to include optimisation recommendations (default: true).',
+              },
+            },
+            required: ['contract_id'],
+          },
+        },
       ],
     }));
 
@@ -441,6 +487,20 @@ class PulsarServer {
               );
             }
             const result = await manageSubscription(parsed.data);
+            return {
+              content: [{ type: 'text', text: JSON.stringify(result) }],
+            };
+          }
+
+          case 'analyze_contract_storage': {
+            const parsed = AnalyzeContractStorageInputSchema.safeParse(args);
+            if (!parsed.success) {
+              throw new PulsarValidationError(
+                `Invalid input for analyze_contract_storage`,
+                parsed.error.format()
+              );
+            }
+            const result = await analyzeContractStorage(parsed.data);
             return {
               content: [{ type: 'text', text: JSON.stringify(result) }],
             };

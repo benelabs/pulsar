@@ -1,7 +1,8 @@
-import { simulateTransaction } from "../tools/simulate_transaction";
-import { getAccountBalance } from "../tools/get_account_balance";
-import { logger } from "../logger";
-import { performance } from "perf_hooks";
+import { performance } from 'perf_hooks';
+import { fileURLToPath } from 'url';
+
+import { simulateTransaction } from '../tools/simulate_transaction';
+import { logger } from '../logger';
 
 /**
  * Benchmarks gas (CPU/Memory) usage for a Stellar/Soroban contract execution.
@@ -22,7 +23,7 @@ export async function benchmarkGas({
   args?: any[];
   account: string;
 }) {
-  logger.info("Starting gas benchmarking...");
+  logger.info('Starting gas benchmarking...');
   const startMem = process.memoryUsage().rss;
   const start = performance.now();
   let simulationResult;
@@ -31,14 +32,14 @@ export async function benchmarkGas({
     simulationResult = await simulateTransaction({ contractId, method, args, account });
   } catch (e) {
     error = e;
-    logger.error("Simulation failed", e);
+    logger.error('Simulation failed', e);
   }
   const end = performance.now();
   const endMem = process.memoryUsage().rss;
   const cpuMs = end - start;
   const memDelta = endMem - startMem;
   let pulsarGas = simulationResult?.gas ?? null;
-  logger.info("Benchmark complete", {
+  logger.info('Benchmark complete', {
     cpuMs,
     memDelta,
     pulsarGas,
@@ -53,7 +54,7 @@ export async function benchmarkGas({
   };
 }
 
-if (require.main === module) {
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
   // CLI usage: node benchmark_gas.js <contractId> <method> <account> [args...]
   (async () => {
     const [contractId, method, account, ...args] = process.argv.slice(2);

@@ -288,3 +288,39 @@ export const ManageSubscriptionInputSchema = z.object({
 });
 
 export type ManageSubscriptionInput = z.infer<typeof ManageSubscriptionInputSchema>;
+
+// ---------------------------------------------------------------------------
+// analyze_contract_storage  (Issue #180 – Storage Optimization for Large Maps)
+// ---------------------------------------------------------------------------
+
+/**
+ * Schema for analyze_contract_storage tool.
+ *
+ * Inputs:
+ * - contract_id           Soroban contract address (C…, required)
+ * - network               Optional network override
+ * - additional_keys       Up to 50 extra base64 XDR ledger keys to include
+ * - size_threshold_bytes  Entries larger than this are flagged (default: 1 024)
+ * - include_recommendations  Whether to return the recommendations array (default: true)
+ */
+export const AnalyzeContractStorageInputSchema = z.object({
+  contract_id: ContractIdSchema,
+  network: NetworkSchema.optional(),
+  additional_keys: z
+    .array(z.string().min(1, { message: 'Ledger key XDR cannot be empty' }))
+    .max(50, { message: 'Cannot analyze more than 50 additional keys per call' })
+    .optional()
+    .describe('Optional base64-encoded XDR ledger keys to include alongside the instance entry'),
+  size_threshold_bytes: z
+    .number()
+    .int()
+    .positive({ message: 'size_threshold_bytes must be a positive integer' })
+    .default(1_024)
+    .describe('Entries larger than this (in bytes) are flagged as oversized (default: 1024)'),
+  include_recommendations: z
+    .boolean()
+    .default(true)
+    .describe('Include optimization recommendations in the response (default: true)'),
+});
+
+export type AnalyzeContractStorageInput = z.infer<typeof AnalyzeContractStorageInputSchema>;
