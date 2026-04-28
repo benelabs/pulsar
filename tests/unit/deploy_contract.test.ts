@@ -27,6 +27,7 @@ describe('deployContract', () => {
     mockServer.loadAccount.mockResolvedValue({
       accountId: () => SOURCE_ACCOUNT,
       sequenceNumber: () => sequence,
+      incrementSequenceNumber: vi.fn(),
     });
   }
 
