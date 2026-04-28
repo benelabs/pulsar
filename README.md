@@ -747,6 +747,35 @@ Builds a Stellar transaction for deploying a Soroban smart contract. Supports tw
 
 ---
 
+### `account_merge`
+
+Builds an unsigned account merge transaction that closes a source Stellar account and transfers its remaining XLM to a destination account. Validates both accounts exist before constructing the transaction.
+
+**Input:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `source_account` | `string` | Yes | Stellar public key (`G...`) of the account being merged |
+| `destination_account` | `string` | Yes | Stellar public key (`G...`) of the destination account that receives the merged XLM |
+| `network` | `string` | No | Override network: `mainnet`, `testnet`, `futurenet`, `custom` |
+
+**Output:**
+
+```jsonc
+{
+  "source_account": "GBBD...",
+  "destination_account": "GBBD...",
+  "network": "testnet",
+  "transaction_xdr": "AAAAAgAAAAE..."
+}
+```
+
+**Example prompt:**
+
+> _"Build an account merge transaction from GBBD... into GBDF... on testnet."_
+
+---
+
 ## Example Prompts & Workflows
 
 These are real-world workflows that become possible once pulsar is connected to your AI assistant.
