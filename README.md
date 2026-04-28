@@ -33,6 +33,7 @@
   - [get_account_balance](#get_account_balance)
   - [fetch_contract_spec](#fetch_contract_spec)
   - [simulate_transaction](#simulate_transaction)
+  - [get_contract_storage](#get_contract_storage)
   - [decode_ledger_entry](#decode_ledger_entry)
   - [submit_transaction](#submit_transaction)
   - [compute_vesting_schedule](#compute_vesting_schedule)
@@ -543,6 +544,44 @@ If the simulation fails (e.g. contract panics, insufficient balance), the `statu
 **Example prompt:**
 
 > _"Simulate this transaction XDR and tell me whether it will succeed and how much it will cost."_
+
+---
+
+### `get_contract_storage`
+
+Fetch a Soroban contract storage entry by durability and key. Returns the raw ledger entry XDR plus TTL metadata when available. Use `decode_ledger_entry` to inspect the decoded fields.
+
+**Input:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `contract_id` | `string` | Yes | The Soroban contract address (`C...`) |
+| `storage_type` | `string` | Yes | `instance`, `persistent`, or `temporary` |
+| `key` | `object` | No | Typed SCVal key for persistent/temporary storage, e.g. `{ type: "symbol", value: "Balance" }` |
+| `network` | `string` | No | Override the network for this call |
+
+**Output:**
+
+```jsonc
+{
+  "contract_id": "CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE",
+  "storage_type": "persistent",
+  "key": { "type": "symbol", "value": "Balance" },
+  "network": "testnet",
+  "entries": [
+    {
+      "key_xdr": "AAAAAgAAAA...",
+      "entry_xdr": "AAAABgAAAAEA...",
+      "last_modified_ledger": 48123456,
+      "live_until_ledger": 48199999
+    }
+  ]
+}
+```
+
+**Example prompt:**
+
+> _"Fetch the persistent storage entry for key `Balance` on contract `CA3D...` and decode it."_
 
 ---
 

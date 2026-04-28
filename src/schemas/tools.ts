@@ -84,6 +84,68 @@ export const ContractReadInputSchema = z.object({
 
 export type ContractReadInput = z.infer<typeof ContractReadInputSchema>;
 
+const ScValTypeSchema = z
+  .enum([
+    "symbol",
+    "string",
+    "u32",
+    "i32",
+    "u64",
+    "i64",
+    "u128",
+    "i128",
+    "bool",
+    "address",
+    "bytes",
+    "void",
+  ])
+  .describe("Soroban SCVal type hint");
+
+const StorageKeySchema = z.object({
+  type: ScValTypeSchema.optional(),
+  value: z.unknown().describe("The value to convert to SCVal"),
+});
+
+/**
+ * Schema for get_contract_storage tool
+ *
+ * Inputs:
+ * - contract_id: Soroban contract ID (required)
+ * - storage_type: instance | persistent | temporary (required)
+ * - key: Typed SCVal key (required for persistent/temporary)
+ * - network: Optional network override
+ */
+export const GetContractStorageInputSchema = z
+  .object({
+    contract_id: ContractIdSchema,
+    storage_type: z
+      .enum(["instance", "persistent", "temporary"])
+      .describe("Storage durability: instance, persistent, or temporary"),
+    key: StorageKeySchema.optional(),
+    network: NetworkSchema.optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.storage_type === "instance" && data.key) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "key is not valid for instance storage",
+        path: ["key"],
+      });
+    }
+
+    if (data.storage_type !== "instance" && !data.key) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "key is required for persistent or temporary storage",
+        path: ["key"],
+      });
+    }
+  });
+
+export type GetContractStorageInput = z.infer<
+  typeof GetContractStorageInputSchema
+>;
+
 /**
  * Schema for simulate_transaction tool
  *

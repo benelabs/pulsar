@@ -10,12 +10,14 @@ import { simulateTransaction } from './tools/simulate_transaction.js';
 import { getAccountBalance } from './tools/get_account_balance.js';
 import { computeVestingSchedule } from './tools/compute_vesting_schedule.js';
 import { deployContract } from './tools/deploy_contract.js';
+import { getContractStorage } from "./tools/get_contract_storage.js";
 import {
   GetAccountBalanceInputSchema,
   SubmitTransactionInputSchema,
   SimulateTransactionInputSchema,
   ComputeVestingScheduleInputSchema,
   DeployContractInputSchema,
+  GetContractStorageInputSchema,
 } from './schemas/tools.js';
 import logger from './logger.js';
 import { PulsarError, PulsarNetworkError, PulsarValidationError } from './errors.js';
@@ -152,6 +154,36 @@ class PulsarServer {
               },
             },
             required: ['xdr'],
+          },
+        },
+        {
+          name: 'get_contract_storage',
+          description:
+            'Fetch a contract storage entry by durability (instance, persistent, temporary) and key. Returns ledger entry XDR plus TTL metadata when available.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              contract_id: {
+                type: 'string',
+                description: 'The Soroban contract address (C...)',
+              },
+              storage_type: {
+                type: 'string',
+                enum: ['instance', 'persistent', 'temporary'],
+                description: 'Which storage durability to read.',
+              },
+              key: {
+                type: 'object',
+                description:
+                  'Typed SCVal key for persistent/temporary storage. Example: { type: "symbol", value: "Balance" }',
+              },
+              network: {
+                type: 'string',
+                enum: ['mainnet', 'testnet', 'futurenet', 'custom'],
+                description: 'Override the configured network for this call.',
+              },
+            },
+            required: ['contract_id', 'storage_type'],
           },
         },
         {
@@ -297,6 +329,17 @@ class PulsarServer {
               throw new PulsarValidationError(`Invalid input for simulate_transaction`, parsed.error.format());
             }
             const result = await simulateTransaction(parsed.data);
+            return {
+              content: [{ type: 'text', text: JSON.stringify(result) }],
+            };
+          }
+
+          case 'get_contract_storage': {
+            const parsed = GetContractStorageInputSchema.safeParse(args);
+            if (!parsed.success) {
+              throw new PulsarValidationError(`Invalid input for get_contract_storage`, parsed.error.format());
+            }
+            const result = await getContractStorage(parsed.data);
             return {
               content: [{ type: 'text', text: JSON.stringify(result) }],
             };

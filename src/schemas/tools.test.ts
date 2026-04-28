@@ -9,6 +9,7 @@ import {
   GetAccountBalanceInputSchema,
   SubmitTransactionInputSchema,
   ContractReadInputSchema,
+  GetContractStorageInputSchema,
 } from "./tools.js";
 
 // ============================================================================
@@ -380,5 +381,62 @@ describe("ContractReadInputSchema", () => {
     };
     const result = ContractReadInputSchema.safeParse(input);
     expect(result.success).toBe(true);
+  });
+});
+
+// ============================================================================
+// GetContractStorageInputSchema
+// ============================================================================
+
+describe("GetContractStorageInputSchema", () => {
+  const validContractId =
+    "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4";
+
+  it("accepts instance storage without key", () => {
+    const input = {
+      contract_id: validContractId,
+      storage_type: "instance",
+    };
+    const result = GetContractStorageInputSchema.safeParse(input);
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts persistent storage with key", () => {
+    const input = {
+      contract_id: validContractId,
+      storage_type: "persistent",
+      key: { type: "symbol", value: "Balance" },
+    };
+    const result = GetContractStorageInputSchema.safeParse(input);
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts temporary storage with key", () => {
+    const input = {
+      contract_id: validContractId,
+      storage_type: "temporary",
+      key: { value: 123 },
+    };
+    const result = GetContractStorageInputSchema.safeParse(input);
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects persistent storage without key", () => {
+    const input = {
+      contract_id: validContractId,
+      storage_type: "persistent",
+    };
+    const result = GetContractStorageInputSchema.safeParse(input);
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects instance storage with key", () => {
+    const input = {
+      contract_id: validContractId,
+      storage_type: "instance",
+      key: { value: "ignored" },
+    };
+    const result = GetContractStorageInputSchema.safeParse(input);
+    expect(result.success).toBe(false);
   });
 });
