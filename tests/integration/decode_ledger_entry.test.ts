@@ -34,6 +34,7 @@ describeIfIntegration('decode_ledger_entry (Integration)', () => {
 
     // Test with a sample XDR (this is a minimal valid XDR structure)
     // In practice, you'd fetch real ledger entry XDR from the network
+
     const sampleXdr = 'AAAAAQAAAAA='; // Minimal base64
 
     const result = await decodeLedgerEntry(sampleXdr);
