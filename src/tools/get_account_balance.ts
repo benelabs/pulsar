@@ -1,10 +1,8 @@
-import { config } from "../config.js";
-import {
-  GetAccountBalanceInputSchema,
-} from "../schemas/tools.js";
-import { getHorizonServer } from "../services/horizon.js";
-import { PulsarNetworkError, PulsarValidationError } from "../errors.js";
-import type { McpToolHandler } from "../types.js";
+import { config } from '../config.js';
+import { GetAccountBalanceInputSchema } from '../schemas/tools.js';
+import { getHorizonServer } from '../services/horizon.js';
+import { PulsarNetworkError, PulsarValidationError } from '../errors.js';
+import type { McpToolHandler } from '../types.js';
 
 export interface Balance {
   asset_type: string;
@@ -23,14 +21,14 @@ export interface GetAccountBalanceOutput {
  * Queries Horizon for an account's XLM and asset balances.
  * Returns structured JSON.
  */
-export const getAccountBalance: McpToolHandler<
-  typeof GetAccountBalanceInputSchema
-> = async (input: unknown) => {
+export const getAccountBalance: McpToolHandler<typeof GetAccountBalanceInputSchema> = async (
+  input: unknown
+) => {
   // Validate input schema
   const validatedInput = GetAccountBalanceInputSchema.safeParse(input);
   if (!validatedInput.success) {
     throw new PulsarValidationError(
-      "Invalid input for get_account_balance",
+      'Invalid input for get_account_balance',
       validatedInput.error.format()
     );
   }
@@ -41,12 +39,20 @@ export const getAccountBalance: McpToolHandler<
   try {
     const account = await server.loadAccount(account_id);
 
-    let balances: Balance[] = account.balances.map((b: any) => ({
-      asset_type: b.asset_type,
-      asset_code: b.asset_code,
-      asset_issuer: b.asset_issuer,
-      balance: b.balance,
-    }));
+    let balances: Balance[] = account.balances.map((b: unknown) => {
+      const balance = b as {
+        asset_type: string;
+        asset_code?: string;
+        asset_issuer?: string;
+        balance: string;
+      };
+      return {
+        asset_type: balance.asset_type,
+        asset_code: balance.asset_code,
+        asset_issuer: balance.asset_issuer,
+        balance: balance.balance,
+      };
+    });
 
     // Filter by asset_code if provided
     if (asset_code) {
@@ -61,18 +67,18 @@ export const getAccountBalance: McpToolHandler<
       account_id,
       balances,
     };
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const error = err as { response?: { status?: number }; message?: string };
     // Handle 404 (account not found)
-    if (err.response && err.response.status === 404) {
-      throw new PulsarNetworkError(
-        "Account not found — it may not be funded yet",
-        { status: 404, account_id }
-      );
+    if (error.response && error.response.status === 404) {
+      throw new PulsarNetworkError('Account not found — it may not be funded yet', {
+        status: 404,
+        account_id,
+      });
     }
 
-    throw new PulsarNetworkError(
-      err.message || "Failed to load account balance",
-      { originalError: err }
-    );
+    throw new PulsarNetworkError(error.message || 'Failed to load account balance', {
+      originalError: err,
+    });
   }
 };
