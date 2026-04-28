@@ -10,13 +10,17 @@ import { simulateTransaction } from './tools/simulate_transaction.js';
 import { getAccountBalance } from './tools/get_account_balance.js';
 import { computeVestingSchedule } from './tools/compute_vesting_schedule.js';
 import { deployContract } from './tools/deploy_contract.js';
+import { calculateDutchAuctionPrice, calculateEnglishAuctionState } from './tools/auction_compute.js';
 import {
   GetAccountBalanceInputSchema,
   SubmitTransactionInputSchema,
   SimulateTransactionInputSchema,
   ComputeVestingScheduleInputSchema,
   DeployContractInputSchema,
+  CalculateDutchAuctionPriceInputSchema,
+  CalculateEnglishAuctionStateInputSchema,
 } from './schemas/tools.js';
+
 import logger from './logger.js';
 import { PulsarError, PulsarNetworkError, PulsarValidationError } from './errors.js';
 
@@ -242,10 +246,41 @@ class PulsarServer {
                 description: 'Override the configured network for this call.',
               },
             },
-            required: ['mode', 'source_account'],
-          },
-        },
-      ],
+      required: ['mode', 'source_account'],
+    },
+  },
+  {
+    name: 'calculate_dutch_auction_price',
+    description: 'Calculate the current price of an asset in a Dutch auction (linear price decay). Useful for NFT drops or fair price discovery.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        start_price: { type: 'number', description: 'Initial auction price.' },
+        reserve_price: { type: 'number', description: 'Minimum/floor price.' },
+        start_timestamp: { type: 'number', description: 'Unix timestamp when decay begins.' },
+        end_timestamp: { type: 'number', description: 'Unix timestamp when price reaches reserve.' },
+        current_timestamp: { type: 'number', description: 'Optional override for current time.' },
+      },
+      required: ['start_price', 'reserve_price', 'start_timestamp', 'end_timestamp'],
+    },
+  },
+  {
+    name: 'calculate_english_auction_state',
+    description: 'Calculate the next bid requirements and state for an English auction.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        current_highest_bid: { type: 'number', description: 'Current top bid (0 if no bids).' },
+        reserve_price: { type: 'number', description: 'Minimum bid to win/start.' },
+        bid_increment: { type: 'number', description: 'Required increase over the current bid.' },
+        bid_increment_type: { type: 'string', enum: ['absolute', 'percentage'], default: 'absolute' },
+        end_timestamp: { type: 'number', description: 'Unix timestamp when auction ends.' },
+        current_timestamp: { type: 'number', description: 'Optional override for current time.' },
+      },
+      required: ['current_highest_bid', 'reserve_price', 'bid_increment', 'end_timestamp'],
+    },
+  },
+],
     }));
 
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
@@ -323,6 +358,25 @@ class PulsarServer {
               content: [{ type: 'text', text: JSON.stringify(result) }],
             };
           }
+
+          case 'calculate_dutch_auction_price': {
+            const parsed = CalculateDutchAuctionPriceInputSchema.safeParse(args);
+            if (!parsed.success) {
+              throw new PulsarValidationError(`Invalid input for calculate_dutch_auction_price`, parsed.error.format());
+            }
+            const result = await calculateDutchAuctionPrice(parsed.data);
+            return { content: [{ type: 'text', text: JSON.stringify(result) }] };
+          }
+
+          case 'calculate_english_auction_state': {
+            const parsed = CalculateEnglishAuctionStateInputSchema.safeParse(args);
+            if (!parsed.success) {
+              throw new PulsarValidationError(`Invalid input for calculate_english_auction_state`, parsed.error.format());
+            }
+            const result = await calculateEnglishAuctionState(parsed.data);
+            return { content: [{ type: 'text', text: JSON.stringify(result) }] };
+          }
+
 
           default:
             throw new McpError(ErrorCode.MethodNotFound, `Tool not found: ${name}`);
