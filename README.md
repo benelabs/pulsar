@@ -291,6 +291,9 @@ STELLAR_CLI_PATH=stellar
 # ─── Server ─────────────────────────────────────────────────────────────────
 # Log level: error | warn | info | debug
 LOG_LEVEL=info
+
+# Tool execution audit log path (defaults to audit.log)
+AUDIT_LOG_PATH=audit.log
 ```
 
 > **Security note:** `STELLAR_SECRET_KEY` is optional and only used by `submit_transaction`. If not set, that tool will return an unsigned XDR blob that you can sign externally. Never use a funded Mainnet key during development — use a throwaway Testnet keypair funded via [Friendbot](https://friendbot.stellar.org).
@@ -920,6 +923,7 @@ npm run typecheck
 - **`submit_transaction` is irreversible.** Always call `simulate_transaction` first to verify the transaction will succeed, especially on Mainnet.
 - **Input validation.** All tool inputs are validated with Zod schemas before any network call. Malformed XDR or invalid public keys are rejected early with clear error messages.
 - **No key storage.** pulsar does not persist keys. The `STELLAR_SECRET_KEY` environment variable is read at runtime and never written to disk by the server.
+- **Tool Execution Audit Logging.** pulsar maintains a local file log (defaults to `audit.log`) of all tools executed, including inputs and outcomes. For strict security standards and data privacy, sensitive fields (such as `STELLAR_SECRET_KEY`, `xdr`, and `envelope_xdr`) are completely redacted, and public identifiers like Stellar account addresses (`G...`) and Soroban Contract IDs (`C...`) are hashed to ensure anonymization.
 - **Rate limiting.** The server does not implement rate limiting internally — if you are hitting Horizon or the Soroban RPC heavily, consider running your own node or using a provider with rate-limit controls.
 - **Testnet first.** The default `STELLAR_NETWORK` is `testnet`. You must explicitly set `STELLAR_NETWORK=mainnet` to interact with the live network. This is intentional.
 

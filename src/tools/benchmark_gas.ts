@@ -1,7 +1,7 @@
-import { simulateTransaction } from "../tools/simulate_transaction";
-import { getAccountBalance } from "../tools/get_account_balance";
-import { logger } from "../logger";
-import { performance } from "perf_hooks";
+import { performance } from 'perf_hooks';
+
+import { simulateTransaction } from '../tools/simulate_transaction.js';
+import logger from '../logger.js';
 
 /**
  * Benchmarks gas (CPU/Memory) usage for a Stellar/Soroban contract execution.
@@ -22,28 +22,31 @@ export async function benchmarkGas({
   args?: any[];
   account: string;
 }) {
-  logger.info("Starting gas benchmarking...");
+  logger.info('Starting gas benchmarking...');
   const startMem = process.memoryUsage().rss;
   const start = performance.now();
   let simulationResult;
   let error;
   try {
-    simulationResult = await simulateTransaction({ contractId, method, args, account });
+    simulationResult = await simulateTransaction({ contractId, method, args, account } as any);
   } catch (e) {
     error = e;
-    logger.error("Simulation failed", e);
+    logger.error(e, 'Simulation failed');
   }
   const end = performance.now();
   const endMem = process.memoryUsage().rss;
   const cpuMs = end - start;
   const memDelta = endMem - startMem;
-  let pulsarGas = simulationResult?.gas ?? null;
-  logger.info("Benchmark complete", {
-    cpuMs,
-    memDelta,
-    pulsarGas,
-    error,
-  });
+  let pulsarGas = (simulationResult as any)?.gas ?? null;
+  logger.info(
+    {
+      cpuMs,
+      memDelta,
+      pulsarGas,
+      error,
+    },
+    'Benchmark complete'
+  );
   return {
     cpuMs,
     memDelta,
@@ -51,14 +54,4 @@ export async function benchmarkGas({
     error,
     simulationResult,
   };
-}
-
-if (require.main === module) {
-  // CLI usage: node benchmark_gas.js <contractId> <method> <account> [args...]
-  (async () => {
-    const [contractId, method, account, ...args] = process.argv.slice(2);
-    const result = await benchmarkGas({ contractId, method, args, account });
-    console.log(JSON.stringify(result, null, 2));
-    process.exit(result.error ? 1 : 0);
-  })();
 }
