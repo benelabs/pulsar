@@ -37,6 +37,7 @@
   - [submit_transaction](#submit_transaction)
   - [compute_vesting_schedule](#compute_vesting_schedule)
   - [deploy_contract](#deploy_contract)
+  - [track_ledger_consensus_time](#track_ledger_consensus_time)
 - [Example Prompts & Workflows](#example-prompts--workflows)
 - [Soroban CLI Integration](#soroban-cli-integration)
 - [Development Guide](#development-guide)
@@ -92,6 +93,7 @@ There is currently **no community-driven MCP server** for Stellar, which means:
 | **Transaction Submission** | Sign (via a provided secret key or external signer) and submit transactions to the network |
 | **Contract Deployment** | Deploy Soroban smart contracts via built-in deployer or factory contracts |
 | **Vesting Schedule Computation** | Calculate token vesting / timelock release schedules for team, investors, and advisors |
+| **Ledger Consensus Tracking** | Sample recent ledgers and report average, min, max, and std-dev of inter-ledger close times |
 | **Multi-network** | Targets Mainnet, Testnet, Futurenet, or a custom RPC endpoint |
 | **Soroban CLI Backend** | Delegates complex operations to the official `stellar` / `soroban` CLI for maximum correctness |
 | **Structured Output** | All tool responses are typed JSON objects the AI can directly parse and act upon |
@@ -747,9 +749,53 @@ Builds a Stellar transaction for deploying a Soroban smart contract. Supports tw
 
 ---
 
+### `track_ledger_consensus_time`
+
+Samples recent ledgers from Horizon and reports the average, minimum, maximum, and standard deviation of inter-ledger close times. Stellar targets approximately 5 seconds per ledger; deviations indicate network congestion or validator slowdowns.
+
+**Input:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `sample_size` | `number` | No | Number of recent ledgers to sample (2–100). Default: `10` |
+| `network` | `string` | No | Override the network for this call (`mainnet`, `testnet`, `futurenet`, `custom`) |
+
+**Output:**
+
+```jsonc
+{
+  "network": "testnet",
+  "sample_size": 10,
+  "average_consensus_seconds": 5.123,
+  "min_consensus_seconds": 4.891,
+  "max_consensus_seconds": 6.204,
+  "std_dev_seconds": 0.412,
+  "sampled_at": "2026-04-28T12:00:00.000Z",
+  "ledgers": [
+    {
+      "sequence": 999991,
+      "closed_at": "2026-04-28T11:59:55.000Z",
+      "close_time_seconds": 5.0
+    },
+    {
+      "sequence": 999992,
+      "closed_at": "2026-04-28T11:59:60.000Z",
+      "close_time_seconds": 5.0
+    }
+  ]
+}
+```
+
+**Example prompt:**
+
+> _"How fast is the Stellar testnet closing ledgers right now? Is consensus healthy?"_
+
+---
+
 ## Example Prompts & Workflows
 
 These are real-world workflows that become possible once pulsar is connected to your AI assistant.
+
 
 ### 1. Inspect an account before sending funds
 
@@ -802,6 +848,7 @@ Operations that use the CLI backend:
 | `submit_transaction` | calls Soroban RPC / Horizon directly, uses CLI for signing if needed |
 | `compute_vesting_schedule` | pure computation, no external calls |
 | `deploy_contract` | calls Horizon to fetch sequence number; builds transaction XDR via stellar-sdk |
+| `track_ledger_consensus_time` | calls Horizon `ledgers()` endpoint; pure computation for statistics |
 
 You can inspect the exact CLI commands being executed by setting `LOG_LEVEL=debug`.
 
@@ -822,7 +869,8 @@ pulsar/
 │   │   ├── decode_ledger_entry.ts
 │   │   ├── submit_transaction.ts
 │   │   ├── compute_vesting_schedule.ts
-│   │   └── deploy_contract.ts
+│   │   ├── deploy_contract.ts
+│   │   └── track_ledger_consensus_time.ts
 │   ├── services/
 │   │   ├── horizon.ts        # Horizon REST client wrapper
 │   │   ├── soroban-rpc.ts    # Soroban JSON-RPC client wrapper
