@@ -4,6 +4,8 @@ export enum PulsarErrorCode {
   CLI_ERROR = 'CLI_ERROR',
   NOT_FOUND_ERROR = 'NOT_FOUND_ERROR',
   INTERNAL_ERROR = 'INTERNAL_ERROR',
+  UNAUTHORIZED_ERROR = 'UNAUTHORIZED_ERROR',
+  FORBIDDEN_ERROR = 'FORBIDDEN_ERROR',
 }
 
 export class PulsarError extends Error {
@@ -43,5 +45,19 @@ export class PulsarNotFoundError extends PulsarError {
   constructor(message: string, details?: any) {
     super(PulsarErrorCode.NOT_FOUND_ERROR, message, details);
     this.name = 'PulsarNotFoundError';
+  }
+}
+
+export class PulsarUnauthorizedError extends PulsarError {
+  constructor(message: string, details?: any) {
+    super(PulsarErrorCode.UNAUTHORIZED_ERROR, message, details);
+    this.name = 'PulsarUnauthorizedError';
+  }
+}
+
+export class PulsarForbiddenError extends PulsarError {
+  constructor(message: string, details?: any) {
+    super(PulsarErrorCode.FORBIDDEN_ERROR, message, details);
+    this.name = 'PulsarForbiddenError';
   }
 }
