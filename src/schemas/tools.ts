@@ -215,3 +215,25 @@ export const DeployContractInputSchema = z.object({
 
 export type DeployContractInput = z.infer<typeof DeployContractInputSchema>;
 
+/**
+ * Schema for track_ledger_consensus_time tool
+ *
+ * Inputs:
+ * - sample_size: Number of recent ledgers to sample (2–100, default: 10)
+ * - network: Optional network override
+ */
+export const TrackLedgerConsensusTimeInputSchema = z.object({
+  sample_size: z
+    .number()
+    .int()
+    .min(2, { message: "sample_size must be at least 2 to compute an average" })
+    .max(100, { message: "sample_size must not exceed 100" })
+    .default(10)
+    .describe("Number of recent ledgers to sample for consensus timing (2–100)"),
+  network: NetworkSchema.optional(),
+});
+
+export type TrackLedgerConsensusTimeInput = z.infer<
+  typeof TrackLedgerConsensusTimeInputSchema
+>;
+

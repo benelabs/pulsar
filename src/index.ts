@@ -10,12 +10,14 @@ import { simulateTransaction } from './tools/simulate_transaction.js';
 import { getAccountBalance } from './tools/get_account_balance.js';
 import { computeVestingSchedule } from './tools/compute_vesting_schedule.js';
 import { deployContract } from './tools/deploy_contract.js';
+import { trackLedgerConsensusTime } from './tools/track_ledger_consensus_time.js';
 import {
   GetAccountBalanceInputSchema,
   SubmitTransactionInputSchema,
   SimulateTransactionInputSchema,
   ComputeVestingScheduleInputSchema,
   DeployContractInputSchema,
+  TrackLedgerConsensusTimeInputSchema,
 } from './schemas/tools.js';
 import logger from './logger.js';
 import { PulsarError, PulsarNetworkError, PulsarValidationError } from './errors.js';
@@ -245,6 +247,30 @@ class PulsarServer {
             required: ['mode', 'source_account'],
           },
         },
+        {
+          name: 'track_ledger_consensus_time',
+          description:
+            'Tracks and reports the average time it takes for ledger consensus on the Stellar network. ' +
+            'Samples N recent ledgers from Horizon and computes average, min, max, and standard deviation ' +
+            'of inter-ledger close times. Useful for detecting network congestion or validator slowdowns. ' +
+            'Stellar targets ~5 s per ledger.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              sample_size: {
+                type: 'number',
+                default: 10,
+                description: 'Number of recent ledgers to sample (2–100). Default: 10.',
+              },
+              network: {
+                type: 'string',
+                enum: ['mainnet', 'testnet', 'futurenet', 'custom'],
+                description: 'Override the configured network for this call.',
+              },
+            },
+            required: [],
+          },
+        },
       ],
     }));
 
@@ -319,6 +345,17 @@ class PulsarServer {
               throw new PulsarValidationError(`Invalid input for deploy_contract`, parsed.error.format());
             }
             const result = await deployContract(parsed.data);
+            return {
+              content: [{ type: 'text', text: JSON.stringify(result) }],
+            };
+          }
+
+          case 'track_ledger_consensus_time': {
+            const parsed = TrackLedgerConsensusTimeInputSchema.safeParse(args);
+            if (!parsed.success) {
+              throw new PulsarValidationError(`Invalid input for track_ledger_consensus_time`, parsed.error.format());
+            }
+            const result = await trackLedgerConsensusTime(parsed.data);
             return {
               content: [{ type: 'text', text: JSON.stringify(result) }],
             };
