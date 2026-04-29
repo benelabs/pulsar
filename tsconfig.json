@@ -17,6 +17,7 @@
   "include": [
     "src/**/*",
     "tests/**/*",
+    "vitest.config.ts",
     "tools/account_merge.ts",
     "tools/account_merge.test.ts"
   ],
