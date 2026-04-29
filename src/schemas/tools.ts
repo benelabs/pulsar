@@ -215,3 +215,38 @@ export const DeployContractInputSchema = z.object({
 
 export type DeployContractInput = z.infer<typeof DeployContractInputSchema>;
 
+/**
+ * Schema for create_trustline tool
+ *
+ * Inputs:
+ * - source_account: Stellar public key that will hold the trustline (required)
+ * - asset_code: Asset code (e.g., 'USDC') (required)
+ * - asset_issuer: Stellar public key of the asset issuer (required)
+ * - limit: Maximum amount of the asset the account can hold (optional, defaults to max)
+ * - network: Optional network override
+ */
+export const CreateTrustlineInputSchema = z.object({
+  source_account: StellarPublicKeySchema.describe(
+    "The Stellar account that will hold the trustline"
+  ),
+  asset_code: z
+    .string()
+    .min(1, { message: "asset_code cannot be empty" })
+    .max(12, { message: "asset_code cannot exceed 12 characters" })
+    .describe("Asset code (e.g., 'USDC')"),
+  asset_issuer: StellarPublicKeySchema.describe(
+    "Stellar public key of the asset issuer"
+  ),
+  limit: z
+    .string()
+    .optional()
+    .describe(
+      "Maximum amount of the asset the account can hold (e.g., '1000.50'). Defaults to max allowed."
+    ),
+  network: NetworkSchema.optional(),
+});
+
+export type CreateTrustlineInput = z.infer<
+  typeof CreateTrustlineInputSchema
+>;
+
