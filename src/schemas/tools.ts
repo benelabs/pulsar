@@ -215,3 +215,54 @@ export const DeployContractInputSchema = z.object({
 
 export type DeployContractInput = z.infer<typeof DeployContractInputSchema>;
 
+/**
+ * Schema for get_orderbook tool
+ *
+ * Retrieves and analyzes the Stellar DEX orderbook for a trading pair.
+ * Returns raw bids/asks plus derived analytics including spread, mid price,
+ * liquidity depth, and orderbook imbalance.
+ *
+ * Inputs:
+ * - selling_asset_code: Asset code being sold (e.g. XLM, USDC) (required)
+ * - selling_asset_issuer: Issuer account for selling asset (omit for XLM native)
+ * - buying_asset_code: Asset code being bought (required)
+ * - buying_asset_issuer: Issuer account for buying asset (omit for XLM native)
+ * - limit: Number of price levels to return (1-200, default 20)
+ * - depth_levels: Price percentage levels for depth analysis (default [1, 2, 5])
+ * - network: Optional network override
+ */
+export const GetOrderbookInputSchema = z.object({
+  selling_asset_code: z
+    .string()
+    .min(1)
+    .max(12)
+    .regex(/^[a-zA-Z0-9]+$/, { message: "Asset code must be alphanumeric" })
+    .describe("Asset code being sold (e.g. XLM, USDC)"),
+  selling_asset_issuer: StellarPublicKeySchema.optional().describe(
+    "Issuer account for selling asset. Omit for XLM native."
+  ),
+  buying_asset_code: z
+    .string()
+    .min(1)
+    .max(12)
+    .regex(/^[a-zA-Z0-9]+$/, { message: "Asset code must be alphanumeric" })
+    .describe("Asset code being bought"),
+  buying_asset_issuer: StellarPublicKeySchema.optional().describe(
+    "Issuer account for buying asset. Omit for XLM native."
+  ),
+  limit: z
+    .number()
+    .int()
+    .min(1, { message: "Limit must be at least 1" })
+    .max(200, { message: "Limit must not exceed 200" })
+    .default(20)
+    .describe("Number of price levels to return per side"),
+  depth_levels: z
+    .array(z.number().positive())
+    .default([1, 2, 5])
+    .describe("Price percentage levels for depth analysis (e.g. [1, 2, 5] for 1%, 2%, 5%)"),
+  network: NetworkSchema.optional(),
+});
+
+export type GetOrderbookInput = z.infer<typeof GetOrderbookInputSchema>;
+
