@@ -215,3 +215,35 @@ export const DeployContractInputSchema = z.object({
 
 export type DeployContractInput = z.infer<typeof DeployContractInputSchema>;
 
+/**
+ * Schema for get_claimable_balance tool
+ *
+ * Inputs:
+ * - account_id: Stellar public key (optional if balance_id provided)
+ * - balance_id: Claimable balance ID (optional if account_id provided)
+ * - network: Optional network override
+ *
+ * At least one of account_id or balance_id must be provided.
+ */
+export const GetClaimableBalanceInputSchema = z.object({
+  account_id: StellarPublicKeySchema.optional().describe(
+    "The Stellar public key (G...) to fetch claimable balances for"
+  ),
+  balance_id: z
+    .string()
+    .regex(/^[a-fA-F0-9]{72}$/, {
+      message: "Balance ID must be a 72-character hex string",
+    })
+    .optional()
+    .describe("A specific claimable balance ID (72 hex chars)"),
+  network: NetworkSchema.optional(),
+}).refine(
+  (data) => data.account_id || data.balance_id,
+  {
+    message: "Either account_id or balance_id must be provided",
+  }
+);
+
+export type GetClaimableBalanceInput = z.infer<
+  typeof GetClaimableBalanceInputSchema
+>;
