@@ -392,7 +392,7 @@ class PulsarServer {
 
 const pulsar = new PulsarServer();
 pulsar.run().catch((error) => {
-  logger.fatal({ error }, '❌ Fatal error in pulsar server');
+  logger.fatal({ error }, 'Fatal error in pulsar server');
   process.exit(1);
 });
 
