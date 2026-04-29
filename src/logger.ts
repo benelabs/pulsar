@@ -5,6 +5,7 @@ import pino from 'pino';
  */
 const redactPaths = [
   'STELLAR_SECRET_KEY',
+  'PULSAR_IPC_ENCRYPTION_KEY',
   'secret',
   'privateKey',
   'raw_secret',
