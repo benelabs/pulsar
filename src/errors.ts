@@ -1,3 +1,5 @@
+import { t, type MessageKey } from './i18n/index.js';
+
 export enum PulsarErrorCode {
   VALIDATION_ERROR = 'VALIDATION_ERROR',
   NETWORK_ERROR = 'NETWORK_ERROR',
@@ -15,6 +17,21 @@ export class PulsarError extends Error {
     super(message);
     this.name = 'PulsarError';
     Object.setPrototypeOf(this, PulsarError.prototype);
+  }
+
+  /**
+   * Get the localized message for this error.
+   * If created with a message key, returns the translated message.
+   * Otherwise returns the original message.
+   */
+  getLocalizedMessage(
+    messageKey?: MessageKey,
+    variables?: Record<string, string | number>
+  ): string {
+    if (messageKey) {
+      return t(messageKey, variables);
+    }
+    return this.message;
   }
 }
 
