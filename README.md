@@ -91,6 +91,7 @@ There is currently **no community-driven MCP server** for Stellar, which means:
 | **Ledger Entry Decoding** | Decode raw XDR ledger entries into human-readable JSON |
 | **Transaction Submission** | Sign (via a provided secret key or external signer) and submit transactions to the network |
 | **Contract Deployment** | Deploy Soroban smart contracts via built-in deployer or factory contracts |
+| **Bridge Event Observation** | Observe Soroban contract events emitted by cross-chain bridge contracts and filter them by contract, type, or topics |
 | **Vesting Schedule Computation** | Calculate token vesting / timelock release schedules for team, investors, and advisors |
 | **Multi-network** | Targets Mainnet, Testnet, Futurenet, or a custom RPC endpoint |
 | **Soroban CLI Backend** | Delegates complex operations to the official `stellar` / `soroban` CLI for maximum correctness |
@@ -501,6 +502,53 @@ Fetch the ABI interface specification of a deployed Soroban smart contract. Retu
 **Example prompt:**
 
 > _"Fetch the contract spec for `CA3D...` and write me a TypeScript SDK client that calls its `transfer` function."_
+
+---
+
+### `observe_bridge_events`
+
+Query Soroban contract events for cross-chain bridge observation workflows. This tool returns decoded event topics and values, plus pagination fields for resuming event scans.
+
+**Input:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `contract_id` | `string` | Yes | The Soroban contract address (`C...`) to observe events for |
+| `event_type` | `string` | No | Optional event type filter (`contract`, `system`, `diagnostic`) |
+| `topic_filters` | `string[][]` | No | Optional nested topic filters using base64 topic values and wildcard patterns |
+| `start_ledger` | `number` | No | Optional ledger sequence at which to begin scanning events |
+| `cursor` | `string` | No | Optional paging token to resume event retrieval |
+| `limit` | `number` | No | Optional maximum number of events to return |
+| `network` | `string` | No | Override the network for this call |
+
+**Output:**
+
+```jsonc
+{
+  "network": "testnet",
+  "latest_ledger": 123456,
+  "events": [
+    {
+      "id": "event-1",
+      "type": "contract",
+      "ledger": 123456,
+      "ledger_closed_at": "2026-01-01T00:00:00Z",
+      "paging_token": "123456-1",
+      "in_successful_contract_call": true,
+      "tx_hash": "abcdef123456",
+      "contract_id": "CA...",
+      "topic_raw": ["AAAA..."],
+      "topic_native": ["bridge_event"],
+      "value_raw": "AAAA...",
+      "value_native": 42
+    }
+  ]
+}
+```
+
+**Example prompt:**
+
+> _"Observe bridge event emissions from contract `CA...` starting at ledger 1,000,000."_
 
 ---
 
