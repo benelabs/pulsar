@@ -6,21 +6,22 @@
  * before any RPC calls are made.
  */
 
-import { z } from "zod";
+import { z } from 'zod';
 
 import {
   StellarPublicKeySchema,
   ContractIdSchema,
   XdrBase64Schema,
   NetworkSchema,
-} from "./index.js";
+  FieldsSchema,
+} from './index.js';
 
 const Hex32Schema = z
   .string()
   .regex(/^[a-fA-F0-9]{64}$/, {
-    message: "Must be a 64-character hex string (32 bytes)",
+    message: 'Must be a 64-character hex string (32 bytes)',
   })
-  .describe("32-byte value encoded as 64 hex characters");
+  .describe('32-byte value encoded as 64 hex characters');
 
 /**
  * Schema for get_account_balance tool
@@ -34,11 +35,10 @@ export const GetAccountBalanceInputSchema = z.object({
   network: NetworkSchema.optional(),
   asset_code: z.string().optional(),
   asset_issuer: StellarPublicKeySchema.optional(),
+  fields: FieldsSchema,
 });
 
-export type GetAccountBalanceInput = z.infer<
-  typeof GetAccountBalanceInputSchema
->;
+export type GetAccountBalanceInput = z.infer<typeof GetAccountBalanceInputSchema>;
 
 /**
  * Schema for submit_transaction tool
@@ -58,14 +58,13 @@ export const SubmitTransactionInputSchema = z.object({
   wait_timeout_ms: z
     .number()
     .int()
-    .min(1000, { message: "wait_timeout_ms must be at least 1000 ms" })
-    .max(120_000, { message: "wait_timeout_ms must not exceed 120000 ms" })
+    .min(1000, { message: 'wait_timeout_ms must be at least 1000 ms' })
+    .max(120_000, { message: 'wait_timeout_ms must not exceed 120000 ms' })
     .default(30_000),
+  fields: FieldsSchema,
 });
 
-export type SubmitTransactionInput = z.infer<
-  typeof SubmitTransactionInputSchema
->;
+export type SubmitTransactionInput = z.infer<typeof SubmitTransactionInputSchema>;
 
 /**
  * Schema for potential future contract_read tool.
@@ -75,9 +74,9 @@ export const ContractReadInputSchema = z.object({
   contract_id: ContractIdSchema,
   method: z
     .string()
-    .min(1, { message: "Method name cannot be empty" })
+    .min(1, { message: 'Method name cannot be empty' })
     .regex(/^[a-zA-Z_][a-zA-Z0-9_]*$/, {
-      message: "Method name must be a valid identifier",
+      message: 'Method name must be a valid identifier',
     }),
   args: z.record(z.unknown()).optional(),
 });
@@ -94,11 +93,10 @@ export type ContractReadInput = z.infer<typeof ContractReadInputSchema>;
 export const SimulateTransactionInputSchema = z.object({
   xdr: XdrBase64Schema,
   network: NetworkSchema.optional(),
+  fields: FieldsSchema,
 });
 
-export type SimulateTransactionInput = z.infer<
-  typeof SimulateTransactionInputSchema
->;
+export type SimulateTransactionInput = z.infer<typeof SimulateTransactionInputSchema>;
 
 /**
  * Schema for compute_vesting_schedule tool
@@ -113,39 +111,33 @@ export type SimulateTransactionInput = z.infer<
  * - current_timestamp: Optional override for "now" (defaults to current time)
  */
 export const ComputeVestingScheduleInputSchema = z.object({
-  total_amount: z
-    .number()
-    .positive({ message: "total_amount must be positive" }),
+  total_amount: z.number().positive({ message: 'total_amount must be positive' }),
   start_timestamp: z
     .number()
     .int()
-    .positive({ message: "start_timestamp must be a positive Unix timestamp" }),
-  cliff_seconds: z
-    .number()
-    .int()
-    .nonnegative({ message: "cliff_seconds must be non-negative" }),
+    .positive({ message: 'start_timestamp must be a positive Unix timestamp' }),
+  cliff_seconds: z.number().int().nonnegative({ message: 'cliff_seconds must be non-negative' }),
   vesting_duration_seconds: z
     .number()
     .int()
-    .positive({ message: "vesting_duration_seconds must be positive" }),
+    .positive({ message: 'vesting_duration_seconds must be positive' }),
   release_frequency_seconds: z
     .number()
     .int()
-    .positive({ message: "release_frequency_seconds must be positive" }),
+    .positive({ message: 'release_frequency_seconds must be positive' }),
   beneficiary_type: z
-    .enum(["team", "investor", "advisor", "other"])
-    .describe("Type of beneficiary receiving the vesting tokens"),
+    .enum(['team', 'investor', 'advisor', 'other'])
+    .describe('Type of beneficiary receiving the vesting tokens'),
   current_timestamp: z
     .number()
     .int()
     .positive()
     .optional()
-    .describe("Optional override for current time as Unix timestamp"),
+    .describe('Optional override for current time as Unix timestamp'),
+  fields: FieldsSchema,
 });
 
-export type ComputeVestingScheduleInput = z.infer<
-  typeof ComputeVestingScheduleInputSchema
->;
+export type ComputeVestingScheduleInput = z.infer<typeof ComputeVestingScheduleInputSchema>;
 
 /**
  * Schema for deploy_contract tool
@@ -166,19 +158,19 @@ export type ComputeVestingScheduleInput = z.infer<
  */
 export const DeployContractInputSchema = z.object({
   mode: z
-    .enum(["direct", "factory"])
-    .describe("Deployment mode: direct (built-in deployer) or factory (via factory contract)"),
+    .enum(['direct', 'factory'])
+    .describe('Deployment mode: direct (built-in deployer) or factory (via factory contract)'),
   source_account: StellarPublicKeySchema.describe(
-    "The Stellar account that will deploy the contract and pay fees"
+    'The Stellar account that will deploy the contract and pay fees'
   ),
   wasm_hash: Hex32Schema.optional().describe(
-    "SHA-256 hash of the uploaded WASM (64 hex chars). Required for direct mode."
+    'SHA-256 hash of the uploaded WASM (64 hex chars). Required for direct mode.'
   ),
   salt: Hex32Schema.optional().describe(
-    "Optional 32-byte salt for deterministic contract address (64 hex chars). Random if omitted."
+    'Optional 32-byte salt for deterministic contract address (64 hex chars). Random if omitted.'
   ),
   factory_contract_id: ContractIdSchema.optional().describe(
-    "Factory contract ID. Required for factory mode."
+    'Factory contract ID. Required for factory mode.'
   ),
   deploy_function: z
     .string()
@@ -190,28 +182,28 @@ export const DeployContractInputSchema = z.object({
       z.object({
         type: z
           .enum([
-            "symbol",
-            "string",
-            "u32",
-            "i32",
-            "u64",
-            "i64",
-            "u128",
-            "i128",
-            "bool",
-            "address",
-            "bytes",
-            "void",
+            'symbol',
+            'string',
+            'u32',
+            'i32',
+            'u64',
+            'i64',
+            'u128',
+            'i128',
+            'bool',
+            'address',
+            'bytes',
+            'void',
           ])
           .optional()
-          .describe("Soroban SCVal type hint"),
-        value: z.unknown().describe("The value to convert to SCVal"),
+          .describe('Soroban SCVal type hint'),
+        value: z.unknown().describe('The value to convert to SCVal'),
       })
     )
     .optional()
-    .describe("Arguments for factory deploy function as typed SCVal objects"),
+    .describe('Arguments for factory deploy function as typed SCVal objects'),
   network: NetworkSchema.optional(),
+  fields: FieldsSchema,
 });
 
 export type DeployContractInput = z.infer<typeof DeployContractInputSchema>;
-

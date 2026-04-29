@@ -7,7 +7,7 @@
  * SECURITY: Secret keys are never logged or surfaced in error messages.
  */
 
-import { z } from "zod";
+import { z } from 'zod';
 
 /**
  * Stellar public key validator.
@@ -15,12 +15,12 @@ import { z } from "zod";
  */
 export const StellarPublicKeySchema = z
   .string()
-  .startsWith("G", { message: "Public key must start with 'G'" })
-  .length(56, { message: "Public key must be exactly 56 characters" })
+  .startsWith('G', { message: "Public key must start with 'G'" })
+  .length(56, { message: 'Public key must be exactly 56 characters' })
   .regex(/^[A-Z2-7]+$/, {
-    message: "Public key must contain only base32 characters (A-Z, 2-7)",
+    message: 'Public key must contain only base32 characters (A-Z, 2-7)',
   })
-  .describe("Stellar public key (G..., 56 chars)");
+  .describe('Stellar public key (G..., 56 chars)');
 
 /**
  * Stellar secret key validator.
@@ -29,12 +29,12 @@ export const StellarPublicKeySchema = z
  */
 export const StellarSecretKeySchema = z
   .string()
-  .startsWith("S", { message: "Secret key must start with 'S'" })
-  .length(56, { message: "Secret key must be exactly 56 characters" })
+  .startsWith('S', { message: "Secret key must start with 'S'" })
+  .length(56, { message: 'Secret key must be exactly 56 characters' })
   .regex(/^[A-Z2-7]+$/, {
-    message: "Secret key must contain only base32 characters (A-Z, 2-7)",
+    message: 'Secret key must contain only base32 characters (A-Z, 2-7)',
   })
-  .describe("Stellar secret key (S..., 56 chars) — NEVER logged");
+  .describe('Stellar secret key (S..., 56 chars) — NEVER logged');
 
 /**
  * Soroban contract address validator.
@@ -42,12 +42,12 @@ export const StellarSecretKeySchema = z
  */
 export const ContractIdSchema = z
   .string()
-  .startsWith("C", { message: "Contract ID must start with 'C'" })
-  .length(56, { message: "Contract ID must be exactly 56 characters" })
+  .startsWith('C', { message: "Contract ID must start with 'C'" })
+  .length(56, { message: 'Contract ID must be exactly 56 characters' })
   .regex(/^[A-Z2-7]+$/, {
-    message: "Contract ID must contain only base32 characters (A-Z, 2-7)",
+    message: 'Contract ID must contain only base32 characters (A-Z, 2-7)',
   })
-  .describe("Soroban contract ID (C..., 56 chars)");
+  .describe('Soroban contract ID (C..., 56 chars)');
 
 /**
  * XDR base64 validator.
@@ -55,17 +55,17 @@ export const ContractIdSchema = z
  */
 export const XdrBase64Schema = z
   .string()
-  .min(1, { message: "XDR cannot be empty" })
-  .regex(/^[A-Za-z0-9+/]*={0,2}$/, { message: "XDR must be valid base64" })
-  .describe("Base64-encoded XDR transaction envelope");
+  .min(1, { message: 'XDR cannot be empty' })
+  .regex(/^[A-Za-z0-9+/]*={0,2}$/, { message: 'XDR must be valid base64' })
+  .describe('Base64-encoded XDR transaction envelope');
 
 /**
  * Stellar network validator.
  * Enum: mainnet | testnet | futurenet | custom
  */
 export const NetworkSchema = z
-  .enum(["mainnet", "testnet", "futurenet", "custom"])
-  .describe("Stellar network: mainnet, testnet, futurenet, or custom");
+  .enum(['mainnet', 'testnet', 'futurenet', 'custom'])
+  .describe('Stellar network: mainnet, testnet, futurenet, or custom');
 
 /**
  * Account balance query schema (for get_account_balance tool)
@@ -81,3 +81,33 @@ export type StellarSecretKey = z.infer<typeof StellarSecretKeySchema>;
 export type ContractId = z.infer<typeof ContractIdSchema>;
 export type XdrBase64 = z.infer<typeof XdrBase64Schema>;
 export type Network = z.infer<typeof NetworkSchema>;
+
+/**
+ * Optional list of top-level field names to include in a tool response.
+ * When present, only the listed keys are returned; unknown keys are silently
+ * ignored so that callers always receive a valid (possibly smaller) object.
+ */
+export const FieldsSchema = z
+  .array(z.string().min(1))
+  .min(1, { message: 'fields must contain at least one field name' })
+  .optional()
+  .describe('Subset of top-level response fields to return. Omit to receive the full response.');
+
+export type Fields = z.infer<typeof FieldsSchema>;
+
+/**
+ * Project a result object to the requested subset of fields.
+ * Returns the original object unchanged when `fields` is undefined.
+ */
+export function applyFieldProjection(result: object, fields: Fields): Record<string, unknown> {
+  if (!fields || fields.length === 0) return result as Record<string, unknown>;
+
+  const src = result as Record<string, unknown>;
+  const projected: Record<string, unknown> = {};
+  for (const key of fields) {
+    if (Object.prototype.hasOwnProperty.call(src, key)) {
+      projected[key] = src[key];
+    }
+  }
+  return projected;
+}
