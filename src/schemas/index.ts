@@ -50,6 +50,17 @@ export const ContractIdSchema = z
   .describe("Soroban contract ID (C..., 56 chars)");
 
 /**
+ * Generic Stellar/Soroban address validator.
+ * Accepts either G... (public key) or C... (contract ID).
+ */
+export const AddressSchema = z
+  .string()
+  .regex(/^[GC][A-Z2-7]{55}$/, {
+    message: "Address must be a valid Stellar public key (G...) or Soroban contract ID (C...)",
+  })
+  .describe("Stellar/Soroban address (G... or C...)");
+
+/**
  * XDR base64 validator.
  * Ensures non-empty base64-encoded XDR blob
  */

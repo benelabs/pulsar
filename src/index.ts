@@ -10,12 +10,14 @@ import { simulateTransaction } from './tools/simulate_transaction.js';
 import { getAccountBalance } from './tools/get_account_balance.js';
 import { computeVestingSchedule } from './tools/compute_vesting_schedule.js';
 import { deployContract } from './tools/deploy_contract.js';
+import { estimateTokenFees } from './tools/estimate_token_fees.js';
 import {
   GetAccountBalanceInputSchema,
   SubmitTransactionInputSchema,
   SimulateTransactionInputSchema,
   ComputeVestingScheduleInputSchema,
   DeployContractInputSchema,
+  EstimateTokenFeesInputSchema,
 } from './schemas/tools.js';
 import logger from './logger.js';
 import { PulsarError, PulsarNetworkError, PulsarValidationError } from './errors.js';
@@ -245,6 +247,42 @@ class PulsarServer {
             required: ['mode', 'source_account'],
           },
         },
+        {
+          name: 'estimate_token_fees',
+          description: 'Estimate the Soroban resource costs (CPU, memory, fees) for minting or burning tokens on a Stellar Asset Contract (SAC).',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              contract_id: {
+                type: 'string',
+                description: 'The SAC contract address (C...)',
+              },
+              amount: {
+                type: 'string',
+                description: 'Amount to mint or burn (i128 string)',
+              },
+              address: {
+                type: 'string',
+                description: 'The address receiving (mint) or losing (burn) tokens',
+              },
+              op: {
+                type: 'string',
+                enum: ['mint', 'burn'],
+                description: 'Operation: mint or burn',
+              },
+              source_account: {
+                type: 'string',
+                description: 'The account invoking the operation',
+              },
+              network: {
+                type: 'string',
+                enum: ['mainnet', 'testnet', 'futurenet', 'custom'],
+                description: 'Override the configured network for this call.',
+              },
+            },
+            required: ['contract_id', 'amount', 'address', 'op', 'source_account'],
+          },
+        },
       ],
     }));
 
@@ -324,6 +362,17 @@ class PulsarServer {
             };
           }
 
+          case 'estimate_token_fees': {
+            const parsed = EstimateTokenFeesInputSchema.safeParse(args);
+            if (!parsed.success) {
+              throw new PulsarValidationError(`Invalid input for estimate_token_fees`, parsed.error.format());
+            }
+            const result = await estimateTokenFees(parsed.data);
+            return {
+              content: [{ type: 'text', text: JSON.stringify(result) }],
+            };
+          }
+
           default:
             throw new McpError(ErrorCode.MethodNotFound, `Tool not found: ${name}`);
         }
@@ -395,4 +444,3 @@ pulsar.run().catch((error) => {
   logger.fatal({ error }, '❌ Fatal error in pulsar server');
   process.exit(1);
 });
-
