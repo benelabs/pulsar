@@ -15,12 +15,14 @@ import { simulateTransaction } from './tools/simulate_transaction.js';
 import { getAccountBalance } from './tools/get_account_balance.js';
 import { computeVestingSchedule } from './tools/compute_vesting_schedule.js';
 import { deployContract } from './tools/deploy_contract.js';
+import { createClaimableBalance } from './tools/create_claimable_balance.js';
 import {
   GetAccountBalanceInputSchema,
   SubmitTransactionInputSchema,
   SimulateTransactionInputSchema,
   ComputeVestingScheduleInputSchema,
   DeployContractInputSchema,
+  CreateClaimableBalanceInputSchema,
 } from './schemas/tools.js';
 import logger from './logger.js';
 import {
@@ -265,6 +267,56 @@ class PulsarServer {
             required: ['mode', 'source_account'],
           },
         },
+        {
+          name: 'create_claimable_balance',
+          description:
+            'Builds a Stellar transaction to create a claimable balance with custom claimants and predicates. ' +
+            'Supports complex conditions like relative/absolute time locks and logical AND/OR/NOT nesting. ' +
+            'Returns the unsigned transaction XDR.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              asset: {
+                type: 'string',
+                description: "Asset to lock (e.g. 'XLM' or 'USDC:GA5Z...')",
+              },
+              amount: {
+                type: 'string',
+                description: 'Amount of the asset to lock.',
+              },
+              claimants: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    destination: {
+                      type: 'string',
+                      description: 'Stellar public key of the claimant',
+                    },
+                    predicate: {
+                      type: 'object',
+                      description:
+                        'Recursive predicate logic (unconditional, beforeAbsoluteTime, beforeRelativeTime, not, and, or)',
+                    },
+                  },
+                  required: ['destination'],
+                },
+                minItems: 1,
+              },
+              source_account: {
+                type: 'string',
+                description:
+                  'Optional: Stellar public key creating the balance. Defaults to configured key.',
+              },
+              network: {
+                type: 'string',
+                enum: ['mainnet', 'testnet', 'futurenet', 'custom'],
+                description: 'Override the configured network for this call.',
+              },
+            },
+            required: ['asset', 'amount', 'claimants'],
+          },
+        },
       ],
     }));
 
@@ -273,7 +325,12 @@ class PulsarServer {
 
       try {
         // Rate Limiting Middleware
-        const clientId = (args as any)?.client_id || (request as any).meta?.client_id || 'default';
+        const argsObj = args as Record<string, unknown>;
+        const requestObj = request as Record<string, unknown>;
+        const clientId =
+          (argsObj?.client_id as string) ||
+          ((requestObj.meta as Record<string, unknown>)?.client_id as string) ||
+          'default';
         if (!rateLimiter.isAllowed(clientId)) {
           const stats = rateLimiter.getStats(clientId);
           throw new PulsarRateLimitError(`Rate limit exceeded for client: ${clientId}.`, {
@@ -369,6 +426,20 @@ class PulsarServer {
               );
             }
             const result = await deployContract(parsed.data);
+            return {
+              content: [{ type: 'text', text: JSON.stringify(result) }],
+            };
+          }
+
+          case 'create_claimable_balance': {
+            const parsed = CreateClaimableBalanceInputSchema.safeParse(args);
+            if (!parsed.success) {
+              throw new PulsarValidationError(
+                `Invalid input for create_claimable_balance`,
+                parsed.error.format()
+              );
+            }
+            const result = await createClaimableBalance(parsed.data);
             return {
               content: [{ type: 'text', text: JSON.stringify(result) }],
             };
