@@ -31,6 +31,7 @@
   - [Any MCP-Compatible Client](#any-mcp-compatible-client)
 - [Tools Reference](#tools-reference)
   - [get_account_balance](#get_account_balance)
+  - [get_account_balances](#get_account_balances)
   - [fetch_contract_spec](#fetch_contract_spec)
   - [simulate_transaction](#simulate_transaction)
   - [decode_ledger_entry](#decode_ledger_entry)
@@ -83,19 +84,19 @@ There is currently **no community-driven MCP server** for Stellar, which means:
 
 ## Features
 
-| Capability | Details |
-|---|---|
-| **Account Balances** | Query XLM and any issued asset balance for any account on Mainnet or Testnet |
-| **Contract Spec Fetching** | Retrieve the full ABI/interface spec of any deployed Soroban contract |
-| **Transaction Simulation** | Dry-run a Soroban transaction and inspect resource usage and return values before spending fees |
-| **Ledger Entry Decoding** | Decode raw XDR ledger entries into human-readable JSON |
-| **Transaction Submission** | Sign (via a provided secret key or external signer) and submit transactions to the network |
-| **Contract Deployment** | Deploy Soroban smart contracts via built-in deployer or factory contracts |
-| **Vesting Schedule Computation** | Calculate token vesting / timelock release schedules for team, investors, and advisors |
-| **Multi-network** | Targets Mainnet, Testnet, Futurenet, or a custom RPC endpoint |
-| **Soroban CLI Backend** | Delegates complex operations to the official `stellar` / `soroban` CLI for maximum correctness |
-| **Structured Output** | All tool responses are typed JSON objects the AI can directly parse and act upon |
-| **Zero-dependency transport** | Uses standard MCP stdio transport — no extra HTTP server required |
+| Capability                       | Details                                                                                               |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| **Account Balances**             | Query XLM and issued asset balances for one account or batch-fetch up to 25 accounts in a single call |
+| **Contract Spec Fetching**       | Retrieve the full ABI/interface spec of any deployed Soroban contract                                 |
+| **Transaction Simulation**       | Dry-run a Soroban transaction and inspect resource usage and return values before spending fees       |
+| **Ledger Entry Decoding**        | Decode raw XDR ledger entries into human-readable JSON                                                |
+| **Transaction Submission**       | Sign (via a provided secret key or external signer) and submit transactions to the network            |
+| **Contract Deployment**          | Deploy Soroban smart contracts via built-in deployer or factory contracts                             |
+| **Vesting Schedule Computation** | Calculate token vesting / timelock release schedules for team, investors, and advisors                |
+| **Multi-network**                | Targets Mainnet, Testnet, Futurenet, or a custom RPC endpoint                                         |
+| **Soroban CLI Backend**          | Delegates complex operations to the official `stellar` / `soroban` CLI for maximum correctness        |
+| **Structured Output**            | All tool responses are typed JSON objects the AI can directly parse and act upon                      |
+| **Zero-dependency transport**    | Uses standard MCP stdio transport — no extra HTTP server required                                     |
 
 ---
 
@@ -144,27 +145,30 @@ Before you start, ensure the following are installed on your machine:
 
 ### Required
 
-| Dependency | Version | Install |
-|---|---|---|
-| **Node.js** | ≥ 18 | [nodejs.org](https://nodejs.org) |
-| **npm** | ≥ 9 | Bundled with Node.js |
-| **Stellar CLI** (`stellar`) | ≥ 21 | See below |
+| Dependency                  | Version | Install                          |
+| --------------------------- | ------- | -------------------------------- |
+| **Node.js**                 | ≥ 18    | [nodejs.org](https://nodejs.org) |
+| **npm**                     | ≥ 9     | Bundled with Node.js             |
+| **Stellar CLI** (`stellar`) | ≥ 21    | See below                        |
 
 ### Installing the Stellar CLI
 
 The Stellar CLI (which includes `soroban` commands) is the official tool maintained by SDF.
 
 **macOS / Linux (via Homebrew):**
+
 ```bash
 brew install stellar-cli
 ```
 
 **macOS / Linux (via cargo):**
+
 ```bash
 cargo install --locked stellar-cli --features opt
 ```
 
 **Verify installation:**
+
 ```bash
 stellar --version
 # stellar 21.x.x
@@ -174,9 +178,9 @@ stellar --version
 
 ### Optional
 
-| Dependency | Purpose |
-|---|---|
-| **jq** | Pretty-printing JSON in shell examples |
+| Dependency       | Purpose                                             |
+| ---------------- | --------------------------------------------------- |
+| **jq**           | Pretty-printing JSON in shell examples              |
 | **Rust + cargo** | Only needed if building the Stellar CLI from source |
 
 ---
@@ -201,6 +205,7 @@ npm link
 ```
 
 After linking, the `pulsar` binary is available system-wide:
+
 ```bash
 pulsar --version
 ```
@@ -255,6 +260,7 @@ docker-compose up
 ```
 
 The `docker-compose.yml` includes:
+
 - Environment variable passthrough from `.env`
 - Resource limits (512MB memory, 1 CPU max)
 - Non-root user execution
@@ -297,12 +303,12 @@ LOG_LEVEL=info
 
 ### Network Selection
 
-| `STELLAR_NETWORK` value | Horizon URL | Soroban RPC URL |
-|---|---|---|
-| `mainnet` | `https://horizon.stellar.org` | `https://soroban-rpc.stellar.org` |
-| `testnet` | `https://horizon-testnet.stellar.org` | `https://soroban-testnet.stellar.org` |
-| `futurenet` | `https://horizon-futurenet.stellar.org` | `https://rpc-futurenet.stellar.org` |
-| `custom` | `HORIZON_URL` env var | `SOROBAN_RPC_URL` env var |
+| `STELLAR_NETWORK` value | Horizon URL                             | Soroban RPC URL                       |
+| ----------------------- | --------------------------------------- | ------------------------------------- |
+| `mainnet`               | `https://horizon.stellar.org`           | `https://soroban-rpc.stellar.org`     |
+| `testnet`               | `https://horizon-testnet.stellar.org`   | `https://soroban-testnet.stellar.org` |
+| `futurenet`             | `https://horizon-futurenet.stellar.org` | `https://rpc-futurenet.stellar.org`   |
+| `custom`                | `HORIZON_URL` env var                   | `SOROBAN_RPC_URL` env var             |
 
 ---
 
@@ -413,11 +419,11 @@ Retrieve the XLM balance and all issued asset balances held by a Stellar account
 
 **Input:**
 
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `account_id` | `string` | Yes | The Stellar public key (`G...`) or a federated address (`name*domain.com`) |
-| `asset_code` | `string` | No | Filter results to a specific asset code, e.g. `USDC` |
-| `asset_issuer` | `string` | No | The issuer public key for the filtered asset |
+| Parameter      | Type     | Required | Description                                                                |
+| -------------- | -------- | -------- | -------------------------------------------------------------------------- |
+| `account_id`   | `string` | Yes      | The Stellar public key (`G...`) or a federated address (`name*domain.com`) |
+| `asset_code`   | `string` | No       | Filter results to a specific asset code, e.g. `USDC`                       |
+| `asset_issuer` | `string` | No       | The issuer public key for the filtered asset                               |
 
 **Output:**
 
@@ -432,7 +438,7 @@ Retrieve the XLM balance and all issued asset balances held by a Stellar account
       "asset_code": "XLM",
       "balance": "9842.1234567",
       "buying_liabilities": "0.0000000",
-      "selling_liabilities": "0.0000000"
+      "selling_liabilities": "0.0000000",
     },
     {
       "asset_type": "credit_alphanum4",
@@ -440,10 +446,10 @@ Retrieve the XLM balance and all issued asset balances held by a Stellar account
       "asset_issuer": "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN",
       "balance": "250.0000000",
       "limit": "922337203685.4775807",
-      "is_authorized": true
-    }
+      "is_authorized": true,
+    },
   ],
-  "network": "testnet"
+  "network": "testnet",
 }
 ```
 
@@ -453,16 +459,71 @@ Retrieve the XLM balance and all issued asset balances held by a Stellar account
 
 ---
 
+### `get_account_balances`
+
+Fetch balances for multiple Stellar accounts in a single tool call. The server fans out concurrent Horizon requests with a bounded concurrency limit and returns per-account successes or failures without dropping the whole batch.
+
+**Input:**
+
+| Parameter         | Type       | Required | Description                                                                     |
+| ----------------- | ---------- | -------- | ------------------------------------------------------------------------------- |
+| `account_ids`     | `string[]` | Yes      | One to 25 unique Stellar public keys (`G...`)                                   |
+| `asset_code`      | `string`   | No       | Filter every account result to a specific asset code, e.g. `USDC`               |
+| `asset_issuer`    | `string`   | No       | The issuer public key for the filtered asset                                    |
+| `max_concurrency` | `number`   | No       | Maximum number of concurrent Horizon requests. Range: `1` to `10`. Default: `5` |
+| `network`         | `string`   | No       | Override the network for this call                                              |
+
+**Output:**
+
+```jsonc
+{
+  "network": "testnet",
+  "requested": 3,
+  "succeeded": 2,
+  "failed": 1,
+  "max_concurrency": 3,
+  "duration_ms": 184,
+  "results": [
+    {
+      "status": "success",
+      "account_id": "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
+      "balances": [
+        {
+          "asset_type": "native",
+          "balance": "9842.1234567",
+        },
+      ],
+    },
+    {
+      "status": "error",
+      "account_id": "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHG",
+      "error_code": "NETWORK_ERROR",
+      "message": "Account not found - it may not be funded yet",
+      "details": {
+        "status": 404,
+        "account_id": "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHG",
+      },
+    },
+  ],
+}
+```
+
+**Example prompt:**
+
+> _"Fetch XLM balances for these treasury accounts in one call and flag any unfunded ones: `GBBD47...`, `GBZX12...`, `GAAA...`."_
+
+---
+
 ### `fetch_contract_spec`
 
 Fetch the ABI interface specification of a deployed Soroban smart contract. Returns the full list of functions, their parameter types, and return types — in both raw XDR and decoded JSON form.
 
 **Input:**
 
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `contract_id` | `string` | Yes | The Soroban contract address (`C...`) |
-| `network` | `string` | No | Override the network for this call (`mainnet`, `testnet`, `futurenet`) |
+| Parameter     | Type     | Required | Description                                                            |
+| ------------- | -------- | -------- | ---------------------------------------------------------------------- |
+| `contract_id` | `string` | Yes      | The Soroban contract address (`C...`)                                  |
+| `network`     | `string` | No       | Override the network for this call (`mainnet`, `testnet`, `futurenet`) |
 
 **Output:**
 
@@ -475,26 +536,26 @@ Fetch the ABI interface specification of a deployed Soroban smart contract. Retu
       "name": "transfer",
       "doc": "Transfer tokens from one account to another.",
       "inputs": [
-        { "name": "from",   "type": "Address" },
-        { "name": "to",     "type": "Address" },
-        { "name": "amount", "type": "i128" }
+        { "name": "from", "type": "Address" },
+        { "name": "to", "type": "Address" },
+        { "name": "amount", "type": "i128" },
       ],
-      "outputs": [{ "type": "bool" }]
+      "outputs": [{ "type": "bool" }],
     },
     {
       "name": "balance",
       "inputs": [{ "name": "id", "type": "Address" }],
-      "outputs": [{ "type": "i128" }]
-    }
+      "outputs": [{ "type": "i128" }],
+    },
   ],
   "events": [
     {
       "name": "transfer",
       "topics": [{ "type": "Symbol" }, { "type": "Address" }, { "type": "Address" }],
-      "data": { "type": "i128" }
-    }
+      "data": { "type": "i128" },
+    },
   ],
-  "raw_xdr": "AAAAAgAAAA..."
+  "raw_xdr": "AAAAAgAAAA...",
 }
 ```
 
@@ -510,10 +571,10 @@ Dry-run a Soroban transaction against the network without broadcasting it. Retur
 
 **Input:**
 
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `xdr` | `string` | Yes | The base64-encoded transaction envelope XDR to simulate |
-| `network` | `string` | No | Override the network for this call |
+| Parameter | Type     | Required | Description                                             |
+| --------- | -------- | -------- | ------------------------------------------------------- |
+| `xdr`     | `string` | Yes      | The base64-encoded transaction envelope XDR to simulate |
+| `network` | `string` | No       | Override the network for this call                      |
 
 **Output:**
 
@@ -522,19 +583,19 @@ Dry-run a Soroban transaction against the network without broadcasting it. Retur
   "status": "success",
   "return_value": {
     "type": "i128",
-    "value": "1000000000"
+    "value": "1000000000",
   },
   "cost": {
     "cpu_instructions": 512340,
-    "memory_bytes": 98304
+    "memory_bytes": 98304,
   },
   "footprint": {
     "read_only": ["ledger_key_1_xdr", "ledger_key_2_xdr"],
-    "read_write": ["ledger_key_3_xdr"]
+    "read_write": ["ledger_key_3_xdr"],
   },
   "min_resource_fee": "12345",
   "events": [],
-  "error": null
+  "error": null,
 }
 ```
 
@@ -552,10 +613,10 @@ Decode a raw base64-encoded XDR ledger entry into a human-readable JSON structur
 
 **Input:**
 
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `xdr` | `string` | Yes | The base64-encoded XDR of the ledger entry (key or value) |
-| `entry_type` | `string` | No | Hint for decoding: `account`, `trustline`, `contract_data`, `contract_code`, `offer`, `data` |
+| Parameter    | Type     | Required | Description                                                                                  |
+| ------------ | -------- | -------- | -------------------------------------------------------------------------------------------- |
+| `xdr`        | `string` | Yes      | The base64-encoded XDR of the ledger entry (key or value)                                    |
+| `entry_type` | `string` | No       | Hint for decoding: `account`, `trustline`, `contract_data`, `contract_code`, `offer`, `data` |
 
 **Output:**
 
@@ -566,21 +627,21 @@ Decode a raw base64-encoded XDR ledger entry into a human-readable JSON structur
     "contract": "CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE",
     "key": {
       "type": "Symbol",
-      "value": "Balance"
+      "value": "Balance",
     },
     "val": {
       "type": "Map",
       "value": [
         {
           "key": { "type": "Address", "value": "GBBD47IF..." },
-          "val": { "type": "i128",    "value": "5000000000" }
-        }
-      ]
+          "val": { "type": "i128", "value": "5000000000" },
+        },
+      ],
     },
     "durability": "persistent",
-    "last_modified_ledger": 48123456
+    "last_modified_ledger": 48123456,
   },
-  "raw_xdr": "AAAABgAAAAEA..."
+  "raw_xdr": "AAAABgAAAAEA...",
 }
 ```
 
@@ -598,12 +659,12 @@ Sign (optionally) and submit a transaction to the Stellar network. If `STELLAR_S
 
 **Input:**
 
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `xdr` | `string` | Yes | The base64-encoded transaction envelope XDR (signed or unsigned) |
-| `network` | `string` | No | Override the network for this submission |
-| `sign` | `boolean` | No | If `true` and `STELLAR_SECRET_KEY` is set, the server signs the transaction before submitting. Default: `false` |
-| `wait_for_result` | `boolean` | No | If `true`, polls until the transaction is confirmed and returns the final result. Default: `true` |
+| Parameter         | Type      | Required | Description                                                                                                     |
+| ----------------- | --------- | -------- | --------------------------------------------------------------------------------------------------------------- |
+| `xdr`             | `string`  | Yes      | The base64-encoded transaction envelope XDR (signed or unsigned)                                                |
+| `network`         | `string`  | No       | Override the network for this submission                                                                        |
+| `sign`            | `boolean` | No       | If `true` and `STELLAR_SECRET_KEY` is set, the server signs the transaction before submitting. Default: `false` |
+| `wait_for_result` | `boolean` | No       | If `true`, polls until the transaction is confirmed and returns the final result. Default: `true`               |
 
 **Output (success):**
 
@@ -616,9 +677,9 @@ Sign (optionally) and submit a transaction to the Stellar network. If `STELLAR_S
   "fee_charged": "1234",
   "return_value": {
     "type": "bool",
-    "value": true
+    "value": true,
   },
-  "result_xdr": "AAAAAAAAAGQ..."
+  "result_xdr": "AAAAAAAAAGQ...",
 }
 ```
 
@@ -632,9 +693,9 @@ Sign (optionally) and submit a transaction to the Stellar network. If `STELLAR_S
   "diagnostic_events": [
     {
       "event": "contract error",
-      "message": "HostError: Error(Contract, #1)"
-    }
-  ]
+      "message": "HostError: Error(Contract, #1)",
+    },
+  ],
 }
 ```
 
@@ -650,15 +711,15 @@ Calculate a token vesting / timelock release schedule for team members, investor
 
 **Input:**
 
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `total_amount` | `number` | Yes | Total token amount to vest |
-| `start_timestamp` | `number` | Yes | Unix timestamp when vesting begins |
-| `cliff_seconds` | `number` | Yes | Seconds before any tokens unlock (cliff period) |
-| `vesting_duration_seconds` | `number` | Yes | Total vesting period in seconds |
-| `release_frequency_seconds` | `number` | Yes | How often tokens unlock after cliff (e.g. `2592000` for monthly) |
-| `beneficiary_type` | `string` | Yes | Category: `team`, `investor`, `advisor`, or `other` |
-| `current_timestamp` | `number` | No | Optional override for "now" (defaults to current time) |
+| Parameter                   | Type     | Required | Description                                                      |
+| --------------------------- | -------- | -------- | ---------------------------------------------------------------- |
+| `total_amount`              | `number` | Yes      | Total token amount to vest                                       |
+| `start_timestamp`           | `number` | Yes      | Unix timestamp when vesting begins                               |
+| `cliff_seconds`             | `number` | Yes      | Seconds before any tokens unlock (cliff period)                  |
+| `vesting_duration_seconds`  | `number` | Yes      | Total vesting period in seconds                                  |
+| `release_frequency_seconds` | `number` | Yes      | How often tokens unlock after cliff (e.g. `2592000` for monthly) |
+| `beneficiary_type`          | `string` | Yes      | Category: `team`, `investor`, `advisor`, or `other`              |
+| `current_timestamp`         | `number` | No       | Optional override for "now" (defaults to current time)           |
 
 **Output:**
 
@@ -677,14 +738,14 @@ Calculate a token vesting / timelock release schedule for team members, investor
     {
       "release_date": "2025-12-13T12:00:00.000Z",
       "amount": "20833.3333333",
-      "released": true
+      "released": true,
     },
     {
       "release_date": "2026-01-13T12:00:00.000Z",
       "amount": "20833.3333333",
-      "released": false
-    }
-  ]
+      "released": false,
+    },
+  ],
 }
 ```
 
@@ -705,16 +766,16 @@ Builds a Stellar transaction for deploying a Soroban smart contract. Supports tw
 
 **Input:**
 
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `mode` | `string` | Yes | `direct` (built-in deployer) or `factory` (via factory contract) |
-| `source_account` | `string` | Yes | Stellar public key (`G...`) that will pay fees |
-| `wasm_hash` | `string` | No | 64-char hex WASM hash. **Required for direct mode.** |
-| `salt` | `string` | No | 64-char hex salt for deterministic address. Random if omitted. |
-| `factory_contract_id` | `string` | No | Factory contract ID (`C...`). **Required for factory mode.** |
-| `deploy_function` | `string` | No | Factory deploy function name. Default: `deploy` |
-| `deploy_args` | `array` | No | Typed SCVal arguments: `[{ type?: 'symbol'\|'string'\|'u32'\|'i32'\|'u64'\|'i64'\|'u128'\|'i128'\|'bool'\|'address'\|'bytes'\|'void', value: any }]` |
-| `network` | `string` | No | Override network: `mainnet`, `testnet`, `futurenet`, `custom` |
+| Parameter             | Type     | Required | Description                                                                                                                                          |
+| --------------------- | -------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `mode`                | `string` | Yes      | `direct` (built-in deployer) or `factory` (via factory contract)                                                                                     |
+| `source_account`      | `string` | Yes      | Stellar public key (`G...`) that will pay fees                                                                                                       |
+| `wasm_hash`           | `string` | No       | 64-char hex WASM hash. **Required for direct mode.**                                                                                                 |
+| `salt`                | `string` | No       | 64-char hex salt for deterministic address. Random if omitted.                                                                                       |
+| `factory_contract_id` | `string` | No       | Factory contract ID (`C...`). **Required for factory mode.**                                                                                         |
+| `deploy_function`     | `string` | No       | Factory deploy function name. Default: `deploy`                                                                                                      |
+| `deploy_args`         | `array`  | No       | Typed SCVal arguments: `[{ type?: 'symbol'\|'string'\|'u32'\|'i32'\|'u64'\|'i64'\|'u128'\|'i128'\|'bool'\|'address'\|'bytes'\|'void', value: any }]` |
+| `network`             | `string` | No       | Override network: `mainnet`, `testnet`, `futurenet`, `custom`                                                                                        |
 
 **Output (direct mode):**
 
@@ -724,7 +785,7 @@ Builds a Stellar transaction for deploying a Soroban smart contract. Supports tw
   "transaction_xdr": "AAAAAgAAAAE...",
   "predicted_contract_id": "CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE",
   "network": "testnet",
-  "source_account": "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5"
+  "source_account": "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
 }
 ```
 
@@ -735,7 +796,7 @@ Builds a Stellar transaction for deploying a Soroban smart contract. Supports tw
   "mode": "factory",
   "transaction_xdr": "AAAAAgAAAAE...",
   "network": "testnet",
-  "source_account": "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5"
+  "source_account": "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
 }
 ```
 
@@ -794,14 +855,14 @@ pulsar delegates certain operations to the official Stellar CLI to ensure byte-l
 
 Operations that use the CLI backend:
 
-| Tool | CLI command used |
-|---|---|
-| `fetch_contract_spec` | `stellar contract info interface` |
-| `simulate_transaction` | calls Soroban RPC `simulateTransaction` directly |
-| `decode_ledger_entry` | `stellar xdr decode` |
-| `submit_transaction` | calls Soroban RPC / Horizon directly, uses CLI for signing if needed |
-| `compute_vesting_schedule` | pure computation, no external calls |
-| `deploy_contract` | calls Horizon to fetch sequence number; builds transaction XDR via stellar-sdk |
+| Tool                       | CLI command used                                                               |
+| -------------------------- | ------------------------------------------------------------------------------ |
+| `fetch_contract_spec`      | `stellar contract info interface`                                              |
+| `simulate_transaction`     | calls Soroban RPC `simulateTransaction` directly                               |
+| `decode_ledger_entry`      | `stellar xdr decode`                                                           |
+| `submit_transaction`       | calls Soroban RPC / Horizon directly, uses CLI for signing if needed           |
+| `compute_vesting_schedule` | pure computation, no external calls                                            |
+| `deploy_contract`          | calls Horizon to fetch sequence number; builds transaction XDR via stellar-sdk |
 
 You can inspect the exact CLI commands being executed by setting `LOG_LEVEL=debug`.
 
@@ -845,28 +906,28 @@ pulsar/
 1. **Create the handler** in `src/tools/my_new_tool.ts`:
 
 ```typescript
-import { z } from "zod";
-import { McpToolHandler } from "../types.js";
+import { z } from 'zod';
+import { McpToolHandler } from '../types.js';
 
 export const myNewToolSchema = z.object({
-  some_param: z.string().describe("Description for the AI to understand"),
+  some_param: z.string().describe('Description for the AI to understand'),
 });
 
 export const myNewTool: McpToolHandler<typeof myNewToolSchema> = async (input) => {
   const { some_param } = input;
   // ... implementation
-  return { result: "..." };
+  return { result: '...' };
 };
 ```
 
 2. **Register it** in `src/index.ts`:
 
 ```typescript
-import { myNewTool, myNewToolSchema } from "./tools/my_new_tool.js";
+import { myNewTool, myNewToolSchema } from './tools/my_new_tool.js';
 
 server.tool(
-  "my_new_tool",
-  "One-sentence description visible to the AI assistant",
+  'my_new_tool',
+  'One-sentence description visible to the AI assistant',
   myNewToolSchema.shape,
   myNewTool
 );
@@ -981,6 +1042,7 @@ npm test && npm run lint
 ### Reporting Issues
 
 Open an issue with:
+
 1. The tool name and inputs you used (redact any secret keys).
 2. The error message or unexpected output.
 3. Your `STELLAR_NETWORK` and `stellar --version`.
@@ -989,15 +1051,15 @@ Open an issue with:
 
 ## Related Projects
 
-| Project | Description |
-|---|---|
-| [Stellar Developer Docs](https://developers.stellar.org) | Official documentation for Stellar and Soroban |
-| [Stellar CLI](https://github.com/stellar/stellar-cli) | Official CLI for Soroban development |
-| [@stellar/stellar-sdk](https://github.com/stellar/js-stellar-sdk) | Official JavaScript/TypeScript SDK |
-| [Model Context Protocol](https://modelcontextprotocol.io) | The open protocol this server implements |
-| [Stella (SDF)](https://stellar.org/blog) | SDF's official headless AI assistant for Stellar |
-| [Soroban Examples](https://github.com/stellar/soroban-examples) | Example Soroban smart contracts |
-| [Stellar Laboratory](https://lab.stellar.org) | Browser-based tool for building and signing transactions |
+| Project                                                           | Description                                              |
+| ----------------------------------------------------------------- | -------------------------------------------------------- |
+| [Stellar Developer Docs](https://developers.stellar.org)          | Official documentation for Stellar and Soroban           |
+| [Stellar CLI](https://github.com/stellar/stellar-cli)             | Official CLI for Soroban development                     |
+| [@stellar/stellar-sdk](https://github.com/stellar/js-stellar-sdk) | Official JavaScript/TypeScript SDK                       |
+| [Model Context Protocol](https://modelcontextprotocol.io)         | The open protocol this server implements                 |
+| [Stella (SDF)](https://stellar.org/blog)                          | SDF's official headless AI assistant for Stellar         |
+| [Soroban Examples](https://github.com/stellar/soroban-examples)   | Example Soroban smart contracts                          |
+| [Stellar Laboratory](https://lab.stellar.org)                     | Browser-based tool for building and signing transactions |
 
 ---
 
