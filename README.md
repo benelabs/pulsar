@@ -37,6 +37,7 @@
   - [submit_transaction](#submit_transaction)
   - [compute_vesting_schedule](#compute_vesting_schedule)
   - [deploy_contract](#deploy_contract)
+  - [export_ai_schemas](#export_ai_schemas)
 - [Example Prompts & Workflows](#example-prompts--workflows)
 - [Soroban CLI Integration](#soroban-cli-integration)
 - [Development Guide](#development-guide)
@@ -92,6 +93,7 @@ There is currently **no community-driven MCP server** for Stellar, which means:
 | **Transaction Submission** | Sign (via a provided secret key or external signer) and submit transactions to the network |
 | **Contract Deployment** | Deploy Soroban smart contracts via built-in deployer or factory contracts |
 | **Vesting Schedule Computation** | Calculate token vesting / timelock release schedules for team, investors, and advisors |
+| **Schema Export for AI** | Export all tool definitions in JSON, Markdown, or OpenAPI formats for AI training and documentation |
 | **Multi-network** | Targets Mainnet, Testnet, Futurenet, or a custom RPC endpoint |
 | **Soroban CLI Backend** | Delegates complex operations to the official `stellar` / `soroban` CLI for maximum correctness |
 | **Structured Output** | All tool responses are typed JSON objects the AI can directly parse and act upon |
@@ -744,6 +746,94 @@ Builds a Stellar transaction for deploying a Soroban smart contract. Supports tw
 > _"Build a transaction to deploy a contract from wasm hash `a1b2c3...` on testnet using account `GBBD...`."_
 
 > _"Deploy a new token contract through my factory `CA3D...` with init args `[symbol: 'init', u64: 1000]` on testnet."_
+
+---
+
+### `export_ai_schemas`
+
+Export comprehensive schema definitions of all Pulsar tools in a format optimized for AI training, documentation generation, and LLM system prompt creation. This tool enables seamless integration of Pulsar tool definitions into external AI/ML systems.
+
+**Supported export formats:**
+
+- **JSON** — Machine-readable schema with type information, examples, and metadata. Ideal for programmatic consumption.
+- **Markdown** — Human-readable documentation with formatted descriptions, code blocks, and best practices.
+- **OpenAPI 3.0** — Industry-standard REST API specification format for integration with API documentation tools and SDK generators.
+
+**Input:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `format` | `string` | No | Export format: `json` (default), `markdown`, or `openapi` |
+| `include_examples` | `boolean` | No | Include example inputs and outputs for each tool. Default: `true` |
+| `network` | `string` | No | Optional network filter (does not affect exported schemas, only for future filtering) |
+
+**Output (format: json):**
+
+```jsonc
+{
+  "format": "json",
+  "content_type": "application/json",
+  "schema_count": 7,
+  "include_examples": true,
+  "data": {
+    "version": "1.0.0",
+    "server": "pulsar",
+    "description": "Pulsar MCP Server — Stellar/Soroban tools for automated blockchain operations...",
+    "tools": [
+      {
+        "name": "get_account_balance",
+        "description": "Query the current XLM and issued asset balances...",
+        "category": "query",
+        "inputSchema": { "type": "object", "properties": { ... } },
+        "outputSchema": { "type": "object", "properties": { ... } },
+        "examples": {
+          "input": { "account_id": "GBBD47IF..." },
+          "output": { "account_id": "GBBD47IF...", "balances": [...] }
+        }
+      },
+      ...
+    ],
+    "metadata": {
+      "total_tools": 7,
+      "categories": { "query": 1, "transaction": 2, "contract": 2, "utility": 2 },
+      "security_notes": [...],
+      "stellar_best_practices": [...]
+    }
+  }
+}
+```
+
+**Output (format: markdown):**
+
+Returns a formatted Markdown document with:
+- Overview and table of contents
+- Security & best practices section
+- Per-tool documentation with descriptions, input/output schemas, and examples
+- Warnings for dangerous operations (e.g., `submit_transaction`)
+
+**Output (format: openapi):**
+
+Returns an OpenAPI 3.0.0 specification with:
+- Server definitions
+- Path definitions for each tool
+- Request/response schemas
+- Component definitions (reusable types)
+
+**Use cases:**
+
+1. **AI Training** — Export as JSON to fine-tune language models with accurate tool definitions
+2. **Documentation** — Export as Markdown to auto-generate developer documentation
+3. **API Clients** — Export as OpenAPI to generate type-safe SDK clients
+4. **System Prompts** — Use Markdown output in LLM system prompts for accurate tool invocation
+5. **Integration** — Consume JSON exports in external systems for tool discovery and validation
+
+**Example prompts:**
+
+> _"Export all tool schemas as JSON for fine-tuning an LLM."_
+
+> _"Generate Markdown documentation for all Pulsar tools with examples."_
+
+> _"Export tool definitions in OpenAPI format for SDK generation."_
 
 ---
 
