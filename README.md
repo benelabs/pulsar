@@ -31,6 +31,7 @@
   - [Any MCP-Compatible Client](#any-mcp-compatible-client)
 - [Tools Reference](#tools-reference)
   - [get_account_balance](#get_account_balance)
+  - [search_assets](#search_assets)
   - [fetch_contract_spec](#fetch_contract_spec)
   - [simulate_transaction](#simulate_transaction)
   - [decode_ledger_entry](#decode_ledger_entry)
@@ -86,6 +87,7 @@ There is currently **no community-driven MCP server** for Stellar, which means:
 | Capability | Details |
 |---|---|
 | **Account Balances** | Query XLM and any issued asset balance for any account on Mainnet or Testnet |
+| **Asset Discovery** | Search for Stellar assets by code, issuer, or reputation scores via Stellar Expert / Horizon |
 | **Contract Spec Fetching** | Retrieve the full ABI/interface spec of any deployed Soroban contract |
 | **Transaction Simulation** | Dry-run a Soroban transaction and inspect resource usage and return values before spending fees |
 | **Ledger Entry Decoding** | Decode raw XDR ledger entries into human-readable JSON |
@@ -450,6 +452,42 @@ Retrieve the XLM balance and all issued asset balances held by a Stellar account
 **Example prompt:**
 
 > _"Check the balance of account `GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5` on testnet."_
+
+---
+
+### `search_assets`
+
+Search for Stellar assets by code, issuer, or minimum reputation score. Uses `stellar.expert` if available for reputation scoring and enhanced search; otherwise falls back to Horizon's `/assets` endpoint.
+
+**Input:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `asset_code` | `string` | No | Filter by asset code (e.g. `USDC`) |
+| `asset_issuer` | `string` | No | Filter by asset issuer public key (`G...`) |
+| `min_reputation_score` | `number` | No | Minimum reputation score/rating (0-10) to filter by. Requires `stellar.expert` resolution. |
+| `network` | `string` | No | Override the configured network for this call |
+
+**Output:**
+
+```jsonc
+{
+  "assets": [
+    {
+      "asset_code": "USDC",
+      "asset_issuer": "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN",
+      "asset_type": "credit_alphanum4",
+      "reputation_score": 9,
+      "amount": "2670911892241840",
+      "domain": "circle.com"
+    }
+  ]
+}
+```
+
+**Example prompt:**
+
+> _"Find all USDC assets on mainnet with a reputation score of at least 8."_
 
 ---
 
