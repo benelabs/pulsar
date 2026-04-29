@@ -35,6 +35,7 @@
   - [simulate_transaction](#simulate_transaction)
   - [decode_ledger_entry](#decode_ledger_entry)
   - [submit_transaction](#submit_transaction)
+  - [build_transaction](#build_transaction)
   - [compute_vesting_schedule](#compute_vesting_schedule)
   - [deploy_contract](#deploy_contract)
 - [Example Prompts & Workflows](#example-prompts--workflows)
@@ -90,6 +91,7 @@ There is currently **no community-driven MCP server** for Stellar, which means:
 | **Transaction Simulation** | Dry-run a Soroban transaction and inspect resource usage and return values before spending fees |
 | **Ledger Entry Decoding** | Decode raw XDR ledger entries into human-readable JSON |
 | **Transaction Submission** | Sign (via a provided secret key or external signer) and submit transactions to the network |
+| **Transaction Build Helper** | Construct common Stellar transactions (payment, trustline, manage data, etc.) without raw XDR knowledge |
 | **Contract Deployment** | Deploy Soroban smart contracts via built-in deployer or factory contracts |
 | **Vesting Schedule Computation** | Calculate token vesting / timelock release schedules for team, investors, and advisors |
 | **Multi-network** | Targets Mainnet, Testnet, Futurenet, or a custom RPC endpoint |
@@ -641,6 +643,111 @@ Sign (optionally) and submit a transaction to the Stellar network. If `STELLAR_S
 **Example prompt:**
 
 > _"Submit this signed transaction XDR to testnet and tell me the result: `AAAA...`"_
+
+---
+
+### `build_transaction`
+
+Construct common Stellar transaction types (payment, trustline, manage data, set options, account merge, create account) without requiring raw XDR knowledge. Returns unsigned transaction XDR ready for simulation and submission.
+
+**Input:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `source_account` | `string` | Yes | The Stellar public key (`G...`) that will sign the transaction and pay fees |
+| `operations` | `array` | Yes | Array of operation objects (minimum 1). Each operation has a `type` and type-specific parameters |
+| `fee` | `number` | No | Base fee in stroops per operation. Default: `100000` |
+| `timeout` | `number` | No | Transaction timeout in seconds. Default: `30` |
+| `network` | `string` | No | Override the network for this transaction |
+
+**Supported Operation Types:**
+
+#### Payment Operation
+```jsonc
+{
+  "type": "payment",
+  "destination": "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
+  "amount": 100.5,
+  "asset_code": "USDC",        // Optional - omit for native XLM
+  "asset_issuer": "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN"  // Required if asset_code provided
+}
+```
+
+#### Change Trust Operation
+```jsonc
+{
+  "type": "change_trust",
+  "asset_code": "USDC",
+  "asset_issuer": "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN",
+  "limit": "1000000"  // Optional - defaults to maximum uint64
+}
+```
+
+#### Manage Data Operation
+```jsonc
+{
+  "type": "manage_data",
+  "name": "user_preference",
+  "value": "dark_mode"  // Optional - omit to clear the entry
+}
+```
+
+#### Set Options Operation
+```jsonc
+{
+  "type": "set_options",
+  "inflation_destination": "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
+  "home_domain": "example.com",
+  "master_weight": 1,
+  "low_threshold": 2,
+  "med_threshold": 3,
+  "high_threshold": 4,
+  "signer_address": "GD5DJOWB5G4H6H6H6H6H6H6H6H6H6H6H6H6H6H6H6H6H6H6H6H6H6H6",
+  "signer_type": "ed25519_public_key",
+  "signer_weight": 1
+}
+```
+
+#### Account Merge Operation
+```jsonc
+{
+  "type": "account_merge",
+  "destination": "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5"
+}
+```
+
+#### Create Account Operation
+```jsonc
+{
+  "type": "create_account",
+  "destination": "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
+  "starting_balance": 2.5
+}
+```
+
+**Output:**
+
+```jsonc
+{
+  "transaction_xdr": "AAAAAgAAAABGDW...==",
+  "network": "testnet",
+  "source_account": "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
+  "operations": [
+    {
+      "type": "payment",
+      "description": "Payment of 100.5 XLM to GD5DJOWB5G4H6H6H6H6H6H6H6H6H6H6H6H6H6H6H6H6H6H6H6H6H6H6"
+    }
+  ],
+  "fee": "100000",
+  "timeout": 30
+}
+```
+
+**Example prompts:**
+
+> _"Build a transaction to send 10 XLM from my account to `GBBD47IF...` on testnet"_
+> _"Create a trustline for USDC issued by `GA5ZSEJY...` with a limit of 1000"_
+> _"Build a transaction that creates a new account with 2 XLM starting balance"_
 
 ---
 

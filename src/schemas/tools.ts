@@ -215,3 +215,79 @@ export const DeployContractInputSchema = z.object({
 
 export type DeployContractInput = z.infer<typeof DeployContractInputSchema>;
 
+/**
+ * Schema for build_transaction tool
+ *
+ * Helps AI assistants construct common transaction types without raw XDR.
+ * Supports payment, trustline, manage data, set options, account merge,
+ * and create account operations.
+ *
+ * Inputs:
+ * - source_account: Stellar public key that will sign and pay fees (required)
+ * - operations: Array of operation objects (required, at least one)
+ * - fee: Base fee in stroops per operation (optional, default: 100000)
+ * - timeout: Transaction timeout in seconds (optional, default: 30)
+ * - network: Optional network override
+ */
+export const BuildTransactionInputSchema = z.object({
+  source_account: StellarPublicKeySchema.describe(
+    "The Stellar account that will sign the transaction and pay fees"
+  ),
+  operations: z.array(
+    z.discriminatedUnion("type", [
+      // Payment operation
+      z.object({
+        type: z.literal("payment"),
+        destination: StellarPublicKeySchema.describe("Destination account (G...)"),
+        amount: z.number().positive().describe("Amount to send"),
+        asset_code: z.string().optional().describe("Asset code (e.g., USDC). Omit for native XLM"),
+        asset_issuer: StellarPublicKeySchema.optional().describe("Asset issuer (G...). Required if asset_code provided"),
+      }),
+      // Change trust operation
+      z.object({
+        type: z.literal("change_trust"),
+        asset_code: z.string().describe("Asset code to create trustline for (e.g., USDC)"),
+        asset_issuer: StellarPublicKeySchema.describe("Asset issuer (G...)"),
+        limit: z.string().optional().describe("Trustline limit. Default: maximum uint64"),
+      }),
+      // Manage data operation
+      z.object({
+        type: z.literal("manage_data"),
+        name: z.string().min(1).max(64).describe("Data entry name (1-64 bytes)"),
+        value: z.union([z.string(), z.record(z.unknown())]).optional().describe("Value to set. Omit to clear entry"),
+      }),
+      // Set options operation
+      z.object({
+        type: z.literal("set_options"),
+        inflation_destination: StellarPublicKeySchema.optional(),
+        clear_flags: z.number().int().min(0).max(7).optional(),
+        set_flags: z.number().int().min(0).max(7).optional(),
+        master_weight: z.number().int().min(1).max(255).optional(),
+        low_threshold: z.number().int().min(1).max(255).optional(),
+        med_threshold: z.number().int().min(1).max(255).optional(),
+        high_threshold: z.number().int().min(1).max(255).optional(),
+        home_domain: z.string().max(32).optional(),
+        signer_address: z.string().optional(),
+        signer_type: z.enum(["ed25519_public_key", "pre_auth_tx", "sha256_hash"]).optional(),
+        signer_weight: z.number().int().min(1).max(255).optional(),
+      }),
+      // Account merge operation
+      z.object({
+        type: z.literal("account_merge"),
+        destination: StellarPublicKeySchema.describe("Destination account to merge into"),
+      }),
+      // Create account operation
+      z.object({
+        type: z.literal("create_account"),
+        destination: StellarPublicKeySchema.describe("New account to create"),
+        starting_balance: z.number().positive().min(1).describe("Starting balance in XLM (minimum 1)"),
+      }),
+    ])
+  ).min(1, { message: "At least one operation is required" }).describe("Array of operations to include in the transaction"),
+  fee: z.number().int().min(100).optional().describe("Base fee in stroops per operation. Default: 100000"),
+  timeout: z.number().int().min(0).max(65535).optional().describe("Transaction timeout in seconds. Default: 30"),
+  network: NetworkSchema.optional(),
+});
+
+export type BuildTransactionInput = z.infer<typeof BuildTransactionInputSchema>;
+

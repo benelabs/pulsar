@@ -10,12 +10,14 @@ import { simulateTransaction } from './tools/simulate_transaction.js';
 import { getAccountBalance } from './tools/get_account_balance.js';
 import { computeVestingSchedule } from './tools/compute_vesting_schedule.js';
 import { deployContract } from './tools/deploy_contract.js';
+import { buildTransaction } from './tools/build_transaction.js';
 import {
   GetAccountBalanceInputSchema,
   SubmitTransactionInputSchema,
   SimulateTransactionInputSchema,
   ComputeVestingScheduleInputSchema,
   DeployContractInputSchema,
+  BuildTransactionInputSchema,
 } from './schemas/tools.js';
 import logger from './logger.js';
 import { PulsarError, PulsarNetworkError, PulsarValidationError } from './errors.js';
@@ -245,6 +247,107 @@ class PulsarServer {
             required: ['mode', 'source_account'],
           },
         },
+        {
+          name: 'build_transaction',
+          description: 'Construct common Stellar transaction types (payment, trustline, manage data, set options, account merge, create account) without raw XDR. Returns unsigned transaction XDR ready for simulation and submission.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              source_account: {
+                type: 'string',
+                description: 'Stellar public key (G...) that will sign the transaction and pay fees.',
+              },
+              operations: {
+                type: 'array',
+                description: 'Array of operations to include in the transaction. Each operation has a type and type-specific parameters.',
+                items: {
+                  type: 'object',
+                  oneOf: [
+                    {
+                      type: 'object',
+                      properties: {
+                        type: { type: 'string', enum: ['payment'] },
+                        destination: { type: 'string', description: 'Destination account (G...)' },
+                        amount: { type: 'number', description: 'Amount to send' },
+                        asset_code: { type: 'string', description: 'Asset code (e.g., USDC). Omit for native XLM' },
+                        asset_issuer: { type: 'string', description: 'Asset issuer (G...). Required if asset_code provided' },
+                      },
+                      required: ['type', 'destination', 'amount'],
+                    },
+                    {
+                      type: 'object',
+                      properties: {
+                        type: { type: 'string', enum: ['change_trust'] },
+                        asset_code: { type: 'string', description: 'Asset code to create trustline for (e.g., USDC)' },
+                        asset_issuer: { type: 'string', description: 'Asset issuer (G...)' },
+                        limit: { type: 'string', description: 'Trustline limit. Default: maximum uint64' },
+                      },
+                      required: ['type', 'asset_code', 'asset_issuer'],
+                    },
+                    {
+                      type: 'object',
+                      properties: {
+                        type: { type: 'string', enum: ['manage_data'] },
+                        name: { type: 'string', description: 'Data entry name (1-64 bytes)' },
+                        value: { description: 'Value to set. Omit to clear entry' },
+                      },
+                      required: ['type', 'name'],
+                    },
+                    {
+                      type: 'object',
+                      properties: {
+                        type: { type: 'string', enum: ['set_options'] },
+                        inflation_destination: { type: 'string' },
+                        clear_flags: { type: 'number' },
+                        set_flags: { type: 'number' },
+                        master_weight: { type: 'number' },
+                        low_threshold: { type: 'number' },
+                        med_threshold: { type: 'number' },
+                        high_threshold: { type: 'number' },
+                        home_domain: { type: 'string' },
+                        signer_address: { type: 'string' },
+                        signer_type: { type: 'string', enum: ['ed25519_public_key', 'pre_auth_tx', 'sha256_hash'] },
+                        signer_weight: { type: 'number' },
+                      },
+                      required: ['type'],
+                    },
+                    {
+                      type: 'object',
+                      properties: {
+                        type: { type: 'string', enum: ['account_merge'] },
+                        destination: { type: 'string', description: 'Destination account to merge into' },
+                      },
+                      required: ['type', 'destination'],
+                    },
+                    {
+                      type: 'object',
+                      properties: {
+                        type: { type: 'string', enum: ['create_account'] },
+                        destination: { type: 'string', description: 'New account to create' },
+                        starting_balance: { type: 'number', description: 'Starting balance in XLM (minimum 1)' },
+                      },
+                      required: ['type', 'destination', 'starting_balance'],
+                    },
+                  ],
+                },
+              },
+              fee: {
+                type: 'number',
+                description: 'Base fee in stroops per operation. Default: 100000',
+              },
+              timeout: {
+                type: 'number',
+                description: 'Transaction timeout in seconds. Default: 30',
+              },
+              network: {
+                type: 'string',
+                enum: ['mainnet', 'testnet', 'futurenet', 'custom'],
+                description: 'Override the configured network for this call.',
+              },
+            },
+            required: ['source_account', 'operations'],
+          },
+        },
       ],
     }));
 
@@ -319,6 +422,17 @@ class PulsarServer {
               throw new PulsarValidationError(`Invalid input for deploy_contract`, parsed.error.format());
             }
             const result = await deployContract(parsed.data);
+            return {
+              content: [{ type: 'text', text: JSON.stringify(result) }],
+            };
+          }
+
+          case 'build_transaction': {
+            const parsed = BuildTransactionInputSchema.safeParse(args);
+            if (!parsed.success) {
+              throw new PulsarValidationError(`Invalid input for build_transaction`, parsed.error.format());
+            }
+            const result = await buildTransaction(parsed.data);
             return {
               content: [{ type: 'text', text: JSON.stringify(result) }],
             };
