@@ -213,5 +213,25 @@ export const DeployContractInputSchema = z.object({
   network: NetworkSchema.optional(),
 });
 
+/**
+ * Schema for get_account_history tool
+ *
+ * Inputs:
+ * - account_id: Stellar public key (required)
+ * - network: Optional network override
+ * - limit: Number of transactions to return (1-200, default 10)
+ * - cursor: Paging token for next page
+ * - order: Sort order — 'asc' or 'desc' (default 'desc')
+ */
+export const GetAccountHistoryInputSchema = z.object({
+  account_id: StellarPublicKeySchema,
+  network: NetworkSchema.optional(),
+  limit: z.number().int().min(1).max(200).default(10).optional(),
+  cursor: z.string().optional(),
+  order: z.enum(["asc", "desc"]).default("desc").optional(),
+});
+
+export type GetAccountHistoryInput = z.infer<typeof GetAccountHistoryInputSchema>;
+
 export type DeployContractInput = z.infer<typeof DeployContractInputSchema>;
 
