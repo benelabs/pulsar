@@ -37,6 +37,7 @@
   - [submit_transaction](#submit_transaction)
   - [compute_vesting_schedule](#compute_vesting_schedule)
   - [deploy_contract](#deploy_contract)
+  - [get_protocol_version](#get_protocol_version)
 - [Example Prompts & Workflows](#example-prompts--workflows)
 - [Soroban CLI Integration](#soroban-cli-integration)
 - [Development Guide](#development-guide)
@@ -91,6 +92,7 @@ There is currently **no community-driven MCP server** for Stellar, which means:
 | **Ledger Entry Decoding** | Decode raw XDR ledger entries into human-readable JSON |
 | **Transaction Submission** | Sign (via a provided secret key or external signer) and submit transactions to the network |
 | **Contract Deployment** | Deploy Soroban smart contracts via built-in deployer or factory contracts |
+| **Protocol Version Info** | Track network upgrades and feature availability across different networks |
 | **Vesting Schedule Computation** | Calculate token vesting / timelock release schedules for team, investors, and advisors |
 | **Multi-network** | Targets Mainnet, Testnet, Futurenet, or a custom RPC endpoint |
 | **Soroban CLI Backend** | Delegates complex operations to the official `stellar` / `soroban` CLI for maximum correctness |
@@ -747,6 +749,70 @@ Builds a Stellar transaction for deploying a Soroban smart contract. Supports tw
 
 ---
 
+### `get_protocol_version`
+
+Retrieves the current Stellar protocol version and network information from Horizon. Returns protocol version, Horizon version, supported features, and upgrade status to help track network capabilities and feature availability.
+
+**Input:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `network` | `string` | No | Override network: `mainnet`, `testnet`, `futurenet`, `custom` |
+
+**Output:**
+
+```jsonc
+{
+  "network": "testnet",
+  "protocol_version": 20,
+  "horizon_version": "4.0.0",
+  "core_version": "stellar-core 20.0.0",
+  "supported_features": [
+    "basic_transactions",
+    "multi_signature", 
+    "payment_channels",
+    "soroban_smart_contracts",
+    "footprint_expiration",
+    "fee_bumps",
+    "liquidity_pools",
+    "claimable_balances",
+    "contract_data_ttl",
+    "contract_instance_storage",
+    "smart_contract_auth",
+    "envelope_types",
+    "contract_cost_model",
+    "cpu_instructions",
+    "stellar_asset_contract",
+    "wasm_v2",
+    "complex_contract_auth",
+    "enhanced_fee_structures"
+  ],
+  "timestamp": "2024-01-15T10:30:00.000Z"
+}
+```
+
+**Supported Features by Protocol Version:**
+
+| Protocol Version | Key Features Added |
+|---|---|
+| 11 | Soroban smart contracts, footprint expiration, fee bumps |
+| 12 | Liquidity pools, claimable balances |
+| 13 | Contract data TTL, contract instance storage |
+| 14 | Smart contract auth, envelope types |
+| 15 | Contract cost model, CPU instructions |
+| 16 | Stellar Asset Contract, WASM v2 |
+| 17+ | Complex contract auth, enhanced fee structures |
+
+**Example prompts:**
+
+> _"What protocol version is testnet currently running and what features are available?"_
+
+> _"Check if mainnet supports Soroban smart contracts yet."_
+
+> _"Compare protocol versions between mainnet and testnet to see what's different."_
+
+---
+
 ## Example Prompts & Workflows
 
 These are real-world workflows that become possible once pulsar is connected to your AI assistant.
@@ -802,6 +868,7 @@ Operations that use the CLI backend:
 | `submit_transaction` | calls Soroban RPC / Horizon directly, uses CLI for signing if needed |
 | `compute_vesting_schedule` | pure computation, no external calls |
 | `deploy_contract` | calls Horizon to fetch sequence number; builds transaction XDR via stellar-sdk |
+| `get_protocol_version` | calls Horizon to fetch latest ledger and root information |
 
 You can inspect the exact CLI commands being executed by setting `LOG_LEVEL=debug`.
 
@@ -822,7 +889,8 @@ pulsar/
 │   │   ├── decode_ledger_entry.ts
 │   │   ├── submit_transaction.ts
 │   │   ├── compute_vesting_schedule.ts
-│   │   └── deploy_contract.ts
+│   │   ├── deploy_contract.ts
+│   │   └── get_protocol_version.ts
 │   ├── services/
 │   │   ├── horizon.ts        # Horizon REST client wrapper
 │   │   ├── soroban-rpc.ts    # Soroban JSON-RPC client wrapper
@@ -934,6 +1002,7 @@ npm run typecheck
 - [x] `submit_transaction` — broadcast + wait for result
 - [x] `compute_vesting_schedule` — token vesting / timelock schedule calculator
 - [x] `deploy_contract` — deploy Soroban contracts via built-in deployer or factory pattern
+- [x] `get_protocol_version` — track network upgrades and feature availability
 - [ ] `get_transaction_history` — paginated history for an account
 - [ ] `stream_events` — subscribe to Soroban contract events
 - [ ] `build_transaction` — construct a Soroban invoke transaction from contract spec + args (without needing pre-built XDR)
