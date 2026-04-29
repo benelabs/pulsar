@@ -4,18 +4,15 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { CallToolRequestSchema, ListToolsRequestSchema, ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
 
 import { config } from "./config.js";
-import { fetchContractSpec, fetchContractSpecSchema } from "./tools/fetch_contract_spec.js";
-import { submitTransaction } from './tools/submit_transaction.js';
-import { simulateTransaction } from './tools/simulate_transaction.js';
-import { getAccountBalance } from './tools/get_account_balance.js';
-import { computeVestingSchedule } from './tools/compute_vesting_schedule.js';
-import { deployContract } from './tools/deploy_contract.js';
 import {
-  GetAccountBalanceInputSchema,
-  SubmitTransactionInputSchema,
-  SimulateTransactionInputSchema,
-  ComputeVestingScheduleInputSchema,
-  DeployContractInputSchema,
+  parseGetAccountBalance,
+  parseFetchContractSpec,
+  parseSubmitTransaction,
+  parseSimulateTransaction,
+  parseComputeVestingSchedule,
+  parseDeployContract,
+  parseDecodeLedgerEntry,
+  parseBenchmarkGas,
 } from './schemas/tools.js';
 import logger from './logger.js';
 import { PulsarError, PulsarNetworkError, PulsarValidationError } from './errors.js';
@@ -245,6 +242,42 @@ class PulsarServer {
             required: ['mode', 'source_account'],
           },
         },
+        {
+          name: 'decode_ledger_entry',
+          description: 'Decode a raw base64-encoded XDR ledger entry into a human-readable JSON structure. Useful for inspecting persistent storage slots of Soroban contracts, or debugging what is actually stored on-chain.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              xdr: {
+                type: 'string',
+                description: 'Base64-encoded XDR of the ledger entry (key or value)',
+              },
+              entry_type: {
+                type: 'string',
+                enum: ['account', 'trustline', 'contract_data', 'contract_code', 'offer', 'data'],
+                description: 'Hint for decoding: account, trustline, contract_data, contract_code, offer, data',
+              },
+            },
+            required: ['xdr'],
+          },
+        },
+        {
+          name: 'benchmark_gas',
+          description: 'Benchmark CPU and Memory usage for a Soroban contract execution by comparing simulation results with local execution overhead.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              contractId: { type: 'string', description: 'Soroban contract ID (C...)' },
+              method: { type: 'string', description: 'Method name to invoke' },
+              account: { type: 'string', description: 'Stellar public key (G...) executing the call' },
+              args: {
+                type: 'array',
+                description: 'Arguments for the contract method',
+              },
+            },
+            required: ['contractId', 'method', 'account'],
+          },
+        },
       ],
     }));
 
@@ -256,10 +289,11 @@ class PulsarServer {
 
         switch (name) {
           case 'get_account_balance': {
-            const parsed = GetAccountBalanceInputSchema.safeParse(args);
+            const parsed = parseGetAccountBalance(args);
             if (!parsed.success) {
               throw new PulsarValidationError(`Invalid input for get_account_balance`, parsed.error.format());
             }
+            const { getAccountBalance } = await import('./tools/get_account_balance.js');
             const result = await getAccountBalance(parsed.data);
             return {
               content: [
@@ -272,19 +306,21 @@ class PulsarServer {
           }
 
           case 'fetch_contract_spec': {
-            const parsed = fetchContractSpecSchema.safeParse(args);
+            const parsed = parseFetchContractSpec(args);
             if (!parsed.success) {
               throw new PulsarValidationError(`Invalid input for fetch_contract_spec`, parsed.error.format());
             }
+            const { fetchContractSpec } = await import('./tools/fetch_contract_spec.js');
             const result = await fetchContractSpec(parsed.data);
             return { content: [{ type: "text", text: JSON.stringify(result) }] };
           }
 
           case 'submit_transaction': {
-            const parsed = SubmitTransactionInputSchema.safeParse(args);
+            const parsed = parseSubmitTransaction(args);
             if (!parsed.success) {
               throw new PulsarValidationError(`Invalid input for submit_transaction`, parsed.error.format());
             }
+            const { submitTransaction } = await import('./tools/submit_transaction.js');
             const result = await submitTransaction(parsed.data);
             return {
               content: [{ type: 'text', text: JSON.stringify(result) }],
@@ -292,10 +328,11 @@ class PulsarServer {
           }
 
           case 'simulate_transaction': {
-            const parsed = SimulateTransactionInputSchema.safeParse(args);
+            const parsed = parseSimulateTransaction(args);
             if (!parsed.success) {
               throw new PulsarValidationError(`Invalid input for simulate_transaction`, parsed.error.format());
             }
+            const { simulateTransaction } = await import('./tools/simulate_transaction.js');
             const result = await simulateTransaction(parsed.data);
             return {
               content: [{ type: 'text', text: JSON.stringify(result) }],
@@ -303,10 +340,11 @@ class PulsarServer {
           }
 
           case 'compute_vesting_schedule': {
-            const parsed = ComputeVestingScheduleInputSchema.safeParse(args);
+            const parsed = parseComputeVestingSchedule(args);
             if (!parsed.success) {
               throw new PulsarValidationError(`Invalid input for compute_vesting_schedule`, parsed.error.format());
             }
+            const { computeVestingSchedule } = await import('./tools/compute_vesting_schedule.js');
             const result = await computeVestingSchedule(parsed.data);
             return {
               content: [{ type: 'text', text: JSON.stringify(result) }],
@@ -314,13 +352,40 @@ class PulsarServer {
           }
 
           case 'deploy_contract': {
-            const parsed = DeployContractInputSchema.safeParse(args);
+            const parsed = parseDeployContract(args);
             if (!parsed.success) {
               throw new PulsarValidationError(`Invalid input for deploy_contract`, parsed.error.format());
             }
+            const { deployContract } = await import('./tools/deploy_contract.js');
             const result = await deployContract(parsed.data);
             return {
               content: [{ type: 'text', text: JSON.stringify(result) }],
+            };
+          }
+
+          case 'benchmark_gas': {
+            const parsed = parseBenchmarkGas(args);
+            if (!parsed.success) {
+              throw new PulsarValidationError(`Invalid input for benchmark_gas`, parsed.error.format());
+            }
+            const { benchmarkGas } = await import('./tools/benchmark_gas.js');
+            const result = await benchmarkGas(parsed.data);
+            return {
+              content: [{ type: 'text', text: JSON.stringify(result) }],
+            };
+          }
+
+          case 'decode_ledger_entry': {
+            const parsed = parseDecodeLedgerEntry(args);
+            if (!parsed.success) {
+              throw new PulsarValidationError(`Invalid input for decode_ledger_entry`, parsed.error.format());
+            }
+            const { decodeLedgerEntryTool } = await import('./tools/decode_ledger_entry.js');
+            const result = await decodeLedgerEntryTool(parsed.data);
+            return {
+              content: [{ type: 'text', text: JSON.stringify(result) }],
+              // If the tool returns an error, ensure it's marked as such for MCP
+              isError: 'error' in result,
             };
           }
 
@@ -395,4 +460,3 @@ pulsar.run().catch((error) => {
   logger.fatal({ error }, '❌ Fatal error in pulsar server');
   process.exit(1);
 });
-

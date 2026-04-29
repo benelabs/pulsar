@@ -13,7 +13,7 @@ import {
 
 import { getHorizonServer } from "../services/horizon.js";
 import { config } from "../config.js";
-import { DeployContractInputSchema } from "../schemas/tools.js";
+import type { DeployContractInput } from "../schemas/tools.js";
 import type { McpToolHandler } from "../types.js";
 import {
   PulsarValidationError,
@@ -101,17 +101,9 @@ function buildScVal(arg: {
  * deterministic contract address.
  */
 export const deployContract: McpToolHandler<
-  typeof DeployContractInputSchema
-> = async (input: unknown) => {
-  const validatedInput = DeployContractInputSchema.safeParse(input);
-  if (!validatedInput.success) {
-    throw new PulsarValidationError(
-      "Invalid input for deploy_contract",
-      validatedInput.error.format()
-    );
-  }
-
-  const data = validatedInput.data;
+  typeof import("../schemas/tools.js").DeployContractInputSchema
+> = async (input: DeployContractInput) => {
+  const data = input;
   const network = data.network ?? config.stellarNetwork;
   const networkPassphrase = resolveNetworkPassphrase(network);
   const sourceAccount = data.source_account;
