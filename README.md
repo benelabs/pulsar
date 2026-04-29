@@ -86,6 +86,8 @@ There is currently **no community-driven MCP server** for Stellar, which means:
 | Capability | Details |
 |---|---|
 | **Account Balances** | Query XLM and any issued asset balance for any account on Mainnet or Testnet |
+| **Liquidity Pool Queries** | Fetch AMM pool reserves, shares, and fee settings from Horizon |
+| **Network Fee Statistics** | Retrieve recent fee percentiles and recommended transaction fees |
 | **Contract Spec Fetching** | Retrieve the full ABI/interface spec of any deployed Soroban contract |
 | **Transaction Simulation** | Dry-run a Soroban transaction and inspect resource usage and return values before spending fees |
 | **Ledger Entry Decoding** | Decode raw XDR ledger entries into human-readable JSON |
@@ -93,6 +95,7 @@ There is currently **no community-driven MCP server** for Stellar, which means:
 | **Contract Deployment** | Deploy Soroban smart contracts via built-in deployer or factory contracts |
 | **Vesting Schedule Computation** | Calculate token vesting / timelock release schedules for team, investors, and advisors |
 | **Multi-network** | Targets Mainnet, Testnet, Futurenet, or a custom RPC endpoint |
+| **Latency-Based RPC Routing** | Automatically route Soroban RPC calls to the fastest healthy endpoint when multiple are configured |
 | **Soroban CLI Backend** | Delegates complex operations to the official `stellar` / `soroban` CLI for maximum correctness |
 | **Structured Output** | All tool responses are typed JSON objects the AI can directly parse and act upon |
 | **Zero-dependency transport** | Uses standard MCP stdio transport — no extra HTTP server required |
@@ -279,6 +282,11 @@ HORIZON_URL=https://horizon-testnet.stellar.org
 # Override the Soroban RPC endpoint (optional)
 SOROBAN_RPC_URL=https://soroban-testnet.stellar.org
 
+# Comma-separated list of Soroban RPC endpoints for latency-based routing.
+# If provided, pulsar will automatically route requests to the fastest healthy endpoint.
+# Example: SOROBAN_RPC_URLS=https://rpc1.example.com,https://rpc2.example.com
+SOROBAN_RPC_URLS=
+
 # ─── Signing (optional — required only for submit_transaction) ───────────────
 # WARNING: Never commit a funded secret key to version control.
 # Use a dedicated low-value keypair for development.
@@ -291,6 +299,13 @@ STELLAR_CLI_PATH=stellar
 # ─── Server ─────────────────────────────────────────────────────────────────
 # Log level: error | warn | info | debug
 LOG_LEVEL=info
+
+# ─── RPC Routing ─────────────────────────────────────────────────────────────
+# Health check interval in milliseconds (default: 30000)
+# RPC_HEALTH_CHECK_INTERVAL_MS=30000
+
+# Maximum acceptable latency for an RPC endpoint in milliseconds before marking it unhealthy (default: 2000)
+# RPC_LATENCY_THRESHOLD_MS=2000
 ```
 
 > **Security note:** `STELLAR_SECRET_KEY` is optional and only used by `submit_transaction`. If not set, that tool will return an unsigned XDR blob that you can sign externally. Never use a funded Mainnet key during development — use a throwaway Testnet keypair funded via [Friendbot](https://friendbot.stellar.org).
@@ -450,6 +465,89 @@ Retrieve the XLM balance and all issued asset balances held by a Stellar account
 **Example prompt:**
 
 > _"Check the balance of account `GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5` on testnet."_
+
+---
+
+### `get_fee_stats`
+
+Retrieve recent network fee statistics from Horizon to help estimate optimal transaction fees. Returns minimum, maximum, average, and percentile (p10–p99) fee values in stroops, along with a recommended fee based on the median (p50).
+
+**Input:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `network` | `string` | No | Override the network for this call (`mainnet`, `testnet`, `futurenet`, `custom`) |
+
+**Output:**
+
+```jsonc
+{
+  "min_accepted_fee": "100",
+  "max_accepted_fee": "10000",
+  "avg_accepted_fee": "5000",
+  "p_10": "1000",
+  "p_20": "1500",
+  "p_30": "2000",
+  "p_40": "2500",
+  "p_50": "3000",
+  "p_60": "3500",
+  "p_70": "4000",
+  "p_80": "4500",
+  "p_90": "5000",
+  "p_95": "6000",
+  "p_99": "8000",
+  "last_ledger": "48234567",
+  "last_ledger_base_fee": "100",
+  "ledger_capacity_usage": 0.75,
+  "recommended_fee_stroops": "3000",
+  "network": "testnet"
+}
+```
+
+`recommended_fee_stroops` is a sensible fee for typical transactions, using the median (p50) when available, falling back to the average or minimum if necessary.
+
+**Example prompt:**
+
+> _"What are the current recommended transaction fees on testnet?"_
+> _"Show me the fee percentile distribution for mainnet."_
+
+---
+
+### `get_liquidity_pool`
+
+Query AMM liquidity pool data including reserves, total shares, fee (in basis points), and pool type. Data is sourced from the Stellar Horizon API.
+
+**Input:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `liquidity_pool_id` | `string` | Yes | The liquidity pool ID (e.g. `POOL_...`) |
+| `network` | `string` | No | Override the network for this call (`mainnet`, `testnet`, `futurenet`, `custom`) |
+
+**Output:**
+
+```jsonc
+{
+  "liquidity_pool_id": "POOL_ABC123...",
+  "fee_bp": 30,
+  "type": "constant_product",
+  "reserves": [
+    { "asset": "XLM", "amount": "1000.1234567" },
+    { "asset": "USDC:GA...", "amount": "500.0000000" }
+  ],
+  "total_shares": "2000.1234567",
+  "network": "testnet"
+}
+```
+
+- `fee_bp` is the pool fee expressed in basis points (1 bp = 0.01%, so 30 bp = 0.3%).
+- `reserves` list the pooled assets and their amounts.
+- `total_shares` is the total supply of pool shares.
+
+**Example prompt:**
+
+> _"Get the reserves and fee for liquidity pool POOL_XYZ on testnet."_
+> _"What is the total share count for the USDC/XLM pool?"_
 
 ---
 
@@ -934,12 +1032,14 @@ npm run typecheck
 - [x] `submit_transaction` — broadcast + wait for result
 - [x] `compute_vesting_schedule` — token vesting / timelock schedule calculator
 - [x] `deploy_contract` — deploy Soroban contracts via built-in deployer or factory pattern
+- [x] `get_liquidity_pool` — fetch AMM pool reserves, shares, and fee settings
+- [x] `get_fee_stats` — retrieve network fee statistics and recommended fees
+- [x] `latency_based_rpc` — automatic routing to the fastest Soroban RPC endpoint
 - [ ] `get_transaction_history` — paginated history for an account
 - [ ] `stream_events` — subscribe to Soroban contract events
 - [ ] `build_transaction` — construct a Soroban invoke transaction from contract spec + args (without needing pre-built XDR)
 - [ ] `fund_testnet_account` — call Friendbot to fund a new Testnet account
 - [ ] `get_offers` — query open DEX offers for an account or asset pair
-- [ ] `get_liquidity_pool` — fetch liquidity pool details
 - [ ] `watch_account` — streaming ledger updates for an account
 - [ ] SSE transport option (for web-based MCP hosts)
 - [ ] Rust implementation (for lower latency and single-binary distribution)

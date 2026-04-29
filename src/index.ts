@@ -10,6 +10,8 @@ import { simulateTransaction } from './tools/simulate_transaction.js';
 import { getAccountBalance } from './tools/get_account_balance.js';
 import { computeVestingSchedule } from './tools/compute_vesting_schedule.js';
 import { deployContract } from './tools/deploy_contract.js';
+import { getLiquidityPool, GetLiquidityPoolInputSchema } from './tools/get_liquidity_pool.js';
+import { getFeeStats, GetFeeStatsInputSchema } from './tools/get_fee_stats.js';
 import {
   GetAccountBalanceInputSchema,
   SubmitTransactionInputSchema,
@@ -73,6 +75,39 @@ class PulsarServer {
               },
             },
             required: ['account_id'],
+          },
+        },
+        {
+          name: 'get_liquidity_pool',
+          description: 'Query AMM liquidity pool reserves, total shares, fee (in basis points), and pool type from Horizon.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              liquidity_pool_id: {
+                type: 'string',
+                description: 'The liquidity pool ID (e.g. POOL_...)',
+              },
+              network: {
+                type: 'string',
+                enum: ['mainnet', 'testnet', 'futurenet', 'custom'],
+                description: 'Override the configured network for this call.',
+              },
+            },
+            required: ['liquidity_pool_id'],
+          },
+        },
+        {
+          name: 'get_fee_stats',
+          description: 'Retrieve recent network fee statistics (min, max, avg, percentiles) from Horizon to estimate optimal transaction fees.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              network: {
+                type: 'string',
+                enum: ['mainnet', 'testnet', 'futurenet', 'custom'],
+                description: 'Override the configured network for this call.',
+              },
+            },
           },
         },
         {
@@ -319,6 +354,28 @@ class PulsarServer {
               throw new PulsarValidationError(`Invalid input for deploy_contract`, parsed.error.format());
             }
             const result = await deployContract(parsed.data);
+            return {
+              content: [{ type: 'text', text: JSON.stringify(result) }],
+            };
+          }
+
+          case 'get_liquidity_pool': {
+            const parsed = GetLiquidityPoolInputSchema.safeParse(args);
+            if (!parsed.success) {
+              throw new PulsarValidationError(`Invalid input for get_liquidity_pool`, parsed.error.format());
+            }
+            const result = await getLiquidityPool(parsed.data);
+            return {
+              content: [{ type: 'text', text: JSON.stringify(result) }],
+            };
+          }
+
+          case 'get_fee_stats': {
+            const parsed = GetFeeStatsInputSchema.safeParse(args);
+            if (!parsed.success) {
+              throw new PulsarValidationError(`Invalid input for get_fee_stats`, parsed.error.format());
+            }
+            const result = await getFeeStats(parsed.data);
             return {
               content: [{ type: 'text', text: JSON.stringify(result) }],
             };

@@ -215,3 +215,31 @@ export const DeployContractInputSchema = z.object({
 
 export type DeployContractInput = z.infer<typeof DeployContractInputSchema>;
 
+/**
+ * Schema for get_liquidity_pool tool
+ *
+ * Queries Horizon for an AMM liquidity pool's reserves, shares, and fee.
+ */
+export const GetLiquidityPoolInputSchema = z.object({
+  liquidity_pool_id: z
+    .string()
+    .min(1)
+    .describe("The liquidity pool ID (e.g. POOL_...)"),
+  network: NetworkSchema.optional(),
+});
+
+export type GetLiquidityPoolInput = z.infer<typeof GetLiquidityPoolInputSchema>;
+
+/**
+ * Schema for get_fee_stats tool
+ *
+ * Fetches recent network fee statistics from Horizon to help estimate
+ * optimal transaction fees.
+ */
+export const GetFeeStatsInputSchema = z.object({
+  network: NetworkSchema.optional().describe("Override the network for fee stats lookup"),
+});
+
+export type GetFeeStatsInput = z.infer<typeof GetFeeStatsInputSchema>;
+
+
