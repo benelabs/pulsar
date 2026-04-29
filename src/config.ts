@@ -11,6 +11,8 @@ const configSchema = z.object({
   stellarSecretKey: z.string().startsWith("S").length(56).optional(),
   stellarCliPath: z.string().default("stellar"),
   logLevel: z.enum(["error", "warn", "info", "debug"]).default("info"),
+  metricsEnabled: z.boolean().default(true),
+  metricsPort: z.number().int().min(1).max(65535).default(9090),
 });
 
 const rawConfig = {
@@ -20,12 +22,15 @@ const rawConfig = {
   stellarSecretKey: process.env.STELLAR_SECRET_KEY || undefined,
   stellarCliPath: process.env.STELLAR_CLI_PATH || "stellar",
   logLevel: process.env.LOG_LEVEL || "info",
+  metricsEnabled: process.env.METRICS_ENABLED !== "false",
+  metricsPort: process.env.METRICS_PORT ? parseInt(process.env.METRICS_PORT, 10) : 9090,
 };
 
 // Validate environment variables
 const parsed = configSchema.safeParse(rawConfig);
 
 if (!parsed.success) {
+  // eslint-disable-next-line no-console
   console.error("❌ Invalid environment variables:", JSON.stringify(parsed.error.format(), null, 2));
   process.exit(1);
 }

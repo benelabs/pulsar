@@ -2,6 +2,7 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema, ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
+import http from "http";
 
 import { config } from "./config.js";
 import { fetchContractSpec, fetchContractSpecSchema } from "./tools/fetch_contract_spec.js";
@@ -19,6 +20,8 @@ import {
 } from './schemas/tools.js';
 import logger from './logger.js';
 import { PulsarError, PulsarNetworkError, PulsarValidationError } from './errors.js';
+import { startMetricsRecording, getPrometheusMetrics } from './services/metrics.js';
+import { trackToolExecution } from './services/metrics-tracking.js';
 
 /**
  * Initialize the pulsar MCP server.
@@ -260,7 +263,7 @@ class PulsarServer {
             if (!parsed.success) {
               throw new PulsarValidationError(`Invalid input for get_account_balance`, parsed.error.format());
             }
-            const result = await getAccountBalance(parsed.data);
+            const result = await trackToolExecution('get_account_balance', () => getAccountBalance(parsed.data));
             return {
               content: [
                 {
@@ -276,7 +279,7 @@ class PulsarServer {
             if (!parsed.success) {
               throw new PulsarValidationError(`Invalid input for fetch_contract_spec`, parsed.error.format());
             }
-            const result = await fetchContractSpec(parsed.data);
+            const result = await trackToolExecution('fetch_contract_spec', () => fetchContractSpec(parsed.data));
             return { content: [{ type: "text", text: JSON.stringify(result) }] };
           }
 
@@ -285,7 +288,7 @@ class PulsarServer {
             if (!parsed.success) {
               throw new PulsarValidationError(`Invalid input for submit_transaction`, parsed.error.format());
             }
-            const result = await submitTransaction(parsed.data);
+            const result = await trackToolExecution('submit_transaction', () => submitTransaction(parsed.data));
             return {
               content: [{ type: 'text', text: JSON.stringify(result) }],
             };
@@ -296,7 +299,7 @@ class PulsarServer {
             if (!parsed.success) {
               throw new PulsarValidationError(`Invalid input for simulate_transaction`, parsed.error.format());
             }
-            const result = await simulateTransaction(parsed.data);
+            const result = await trackToolExecution('simulate_transaction', () => simulateTransaction(parsed.data));
             return {
               content: [{ type: 'text', text: JSON.stringify(result) }],
             };
@@ -307,7 +310,7 @@ class PulsarServer {
             if (!parsed.success) {
               throw new PulsarValidationError(`Invalid input for compute_vesting_schedule`, parsed.error.format());
             }
-            const result = await computeVestingSchedule(parsed.data);
+            const result = await trackToolExecution('compute_vesting_schedule', () => computeVestingSchedule(parsed.data));
             return {
               content: [{ type: 'text', text: JSON.stringify(result) }],
             };
@@ -318,7 +321,7 @@ class PulsarServer {
             if (!parsed.success) {
               throw new PulsarValidationError(`Invalid input for deploy_contract`, parsed.error.format());
             }
-            const result = await deployContract(parsed.data);
+            const result = await trackToolExecution('deploy_contract', () => deployContract(parsed.data));
             return {
               content: [{ type: 'text', text: JSON.stringify(result) }],
             };
@@ -381,7 +384,55 @@ class PulsarServer {
     };
   }
 
+  private startMetricsServer(): http.Server | null {
+    if (!config.metricsEnabled) {
+      logger.info('Metrics disabled via METRICS_ENABLED=false');
+      return null;
+    }
+
+    const metricsServer = http.createServer(async (req, res) => {
+      if (req.url === '/metrics' && req.method === 'GET') {
+        try {
+          const metrics = await getPrometheusMetrics();
+          res.writeHead(200, { 'Content-Type': 'text/plain; version=0.0.4' });
+          res.end(metrics);
+        } catch (error) {
+          logger.error({ error }, 'Failed to generate metrics');
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Failed to generate metrics' }));
+        }
+      } else if (req.url === '/health' && req.method === 'GET') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ status: 'ok', uptime: process.uptime() }));
+      } else {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Not found' }));
+      }
+    });
+
+    metricsServer.listen(config.metricsPort, () => {
+      logger.info(`Metrics server listening on http://localhost:${config.metricsPort}/metrics`);
+    });
+
+    metricsServer.on('error', (error) => {
+      logger.error({ error }, `Failed to start metrics server on port ${config.metricsPort}`);
+    });
+
+    return metricsServer;
+  }
+
   async run() {
+    // Start metrics recording and endpoint
+    if (config.metricsEnabled) {
+      const metricsInterval = startMetricsRecording();
+      this.startMetricsServer();
+
+      // Cleanup on exit
+      process.on('exit', () => {
+        clearInterval(metricsInterval);
+      });
+    }
+
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
     logger.info(
