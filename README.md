@@ -37,6 +37,8 @@
   - [submit_transaction](#submit_transaction)
   - [compute_vesting_schedule](#compute_vesting_schedule)
   - [deploy_contract](#deploy_contract)
+  - [sign_with_ledger](#sign_with_ledger)
+  - [inspect_xdr](#inspect_xdr)
 - [Example Prompts & Workflows](#example-prompts--workflows)
 - [Soroban CLI Integration](#soroban-cli-integration)
 - [Development Guide](#development-guide)
@@ -91,6 +93,8 @@ There is currently **no community-driven MCP server** for Stellar, which means:
 | **Ledger Entry Decoding** | Decode raw XDR ledger entries into human-readable JSON |
 | **Transaction Submission** | Sign (via a provided secret key or external signer) and submit transactions to the network |
 | **Contract Deployment** | Deploy Soroban smart contracts via built-in deployer or factory contracts |
+| **Hardware Wallet Signing** | Securely sign transactions using a physical Ledger device |
+| **XDR Inspection** | Pre-validate XDR blobs for security risks and red flags before simulation |
 | **Vesting Schedule Computation** | Calculate token vesting / timelock release schedules for team, investors, and advisors |
 | **Multi-network** | Targets Mainnet, Testnet, Futurenet, or a custom RPC endpoint |
 | **Soroban CLI Backend** | Delegates complex operations to the official `stellar` / `soroban` CLI for maximum correctness |
@@ -744,6 +748,70 @@ Builds a Stellar transaction for deploying a Soroban smart contract. Supports tw
 > _"Build a transaction to deploy a contract from wasm hash `a1b2c3...` on testnet using account `GBBD...`."_
 
 > _"Deploy a new token contract through my factory `CA3D...` with init args `[symbol: 'init', u64: 1000]` on testnet."_
+
+---
+
+### `sign_with_ledger`
+
+Delegates transaction signing to a physical Ledger hardware wallet. The device must be connected via USB and the Stellar app must be open. This tool will block until the user confirms or rejects the transaction on the device.
+
+**Input:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `xdr` | `string` | Yes | Base64-encoded unsigned transaction envelope XDR |
+| `derivation_path` | `string` | No | BIP44 derivation path (default: `44'/148'/0'`) |
+| `network` | `string` | No | Stellar network override (`mainnet`, `testnet`, `futurenet`) |
+
+**Output:**
+
+```jsonc
+{
+  "status": "SUCCESS",
+  "signed_xdr": "AAAAAgAAAAE...",
+  "network": "testnet"
+}
+```
+
+**Example prompt:**
+
+> _"Sign this transaction XDR with my Ledger: `AAAA...`"_
+
+---
+
+### `inspect_xdr`
+
+Analyzes a Stellar transaction XDR for potential security risks before simulation or submission. Flags dangerous operations like account merges, signer changes, or excessive fees.
+
+**Input:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `xdr` | `string` | Yes | Base64-encoded transaction envelope XDR |
+| `network` | `string` | No | Stellar network override (`mainnet`, `testnet`, `futurenet`) |
+
+**Output:**
+
+```jsonc
+{
+  "is_safe": false,
+  "risk_level": "HIGH",
+  "findings": [
+    {
+      "level": "HIGH",
+      "type": "ACCOUNT_MERGE",
+      "message": "DANGEROUS: This operation will permanently delete account..."
+    }
+  ],
+  "operation_count": 1,
+  "total_fee": "100",
+  "summary": "Transaction with 1 operation(s): accountMerge."
+}
+```
+
+**Example prompt:**
+
+> _"Is this XDR safe to sign? `AAAA...`"_
 
 ---
 

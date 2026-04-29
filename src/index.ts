@@ -16,7 +16,12 @@ import {
   SimulateTransactionInputSchema,
   ComputeVestingScheduleInputSchema,
   DeployContractInputSchema,
+  SignWithLedgerInputSchema,
+  InspectXdrInputSchema,
 } from './schemas/tools.js';
+import { signWithLedger } from './tools/sign_with_ledger.js';
+import { inspectXdr } from './tools/inspect_xdr.js';
+
 import logger from './logger.js';
 import { PulsarError, PulsarNetworkError, PulsarValidationError } from './errors.js';
 
@@ -245,6 +250,54 @@ class PulsarServer {
             required: ['mode', 'source_account'],
           },
         },
+        {
+          name: 'sign_with_ledger',
+          description:
+            'Delegates transaction signing to a physical Ledger hardware wallet. ' +
+            'The device must be connected via USB and the Stellar app must be open. ' +
+            'This tool will block until the user confirms or rejects the transaction on the device.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              xdr: {
+                type: 'string',
+                description: 'Base64-encoded unsigned transaction envelope XDR.',
+              },
+              derivation_path: {
+                type: 'string',
+                default: "44'/148'/0'",
+                description: "BIP44 derivation path (e.g. 44'/148'/0').",
+              },
+              network: {
+                type: 'string',
+                enum: ['mainnet', 'testnet', 'futurenet', 'custom'],
+                description: 'Stellar network passphrase to use.',
+              },
+            },
+            required: ['xdr'],
+          },
+        },
+        {
+          name: 'inspect_xdr',
+          description:
+            'Analyzes a Stellar transaction XDR for potential security risks before simulation or submission. ' +
+            'Flags dangerous operations like account merges, signer changes, or excessive fees.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              xdr: {
+                type: 'string',
+                description: 'Base64-encoded transaction envelope XDR.',
+              },
+              network: {
+                type: 'string',
+                enum: ['mainnet', 'testnet', 'futurenet', 'custom'],
+                description: 'Stellar network passphrase to use.',
+              },
+            },
+            required: ['xdr'],
+          },
+        },
       ],
     }));
 
@@ -319,6 +372,28 @@ class PulsarServer {
               throw new PulsarValidationError(`Invalid input for deploy_contract`, parsed.error.format());
             }
             const result = await deployContract(parsed.data);
+            return {
+              content: [{ type: 'text', text: JSON.stringify(result) }],
+            };
+          }
+
+          case 'sign_with_ledger': {
+            const parsed = SignWithLedgerInputSchema.safeParse(args);
+            if (!parsed.success) {
+              throw new PulsarValidationError(`Invalid input for sign_with_ledger`, parsed.error.format());
+            }
+            const result = await signWithLedger(parsed.data);
+            return {
+              content: [{ type: 'text', text: JSON.stringify(result) }],
+            };
+          }
+
+          case 'inspect_xdr': {
+            const parsed = InspectXdrInputSchema.safeParse(args);
+            if (!parsed.success) {
+              throw new PulsarValidationError(`Invalid input for inspect_xdr`, parsed.error.format());
+            }
+            const result = await inspectXdr(parsed.data);
             return {
               content: [{ type: 'text', text: JSON.stringify(result) }],
             };
