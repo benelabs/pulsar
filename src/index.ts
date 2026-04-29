@@ -10,12 +10,14 @@ import { simulateTransaction } from './tools/simulate_transaction.js';
 import { getAccountBalance } from './tools/get_account_balance.js';
 import { computeVestingSchedule } from './tools/compute_vesting_schedule.js';
 import { deployContract } from './tools/deploy_contract.js';
+import { createTrustline } from './tools/create_trustline.js';
 import {
   GetAccountBalanceInputSchema,
   SubmitTransactionInputSchema,
   SimulateTransactionInputSchema,
   ComputeVestingScheduleInputSchema,
   DeployContractInputSchema,
+  CreateTrustlineInputSchema,
 } from './schemas/tools.js';
 import logger from './logger.js';
 import { PulsarError, PulsarNetworkError, PulsarValidationError } from './errors.js';
@@ -245,6 +247,39 @@ class PulsarServer {
             required: ['mode', 'source_account'],
           },
         },
+        {
+          name: 'create_trustline',
+          description:
+            'Builds a Stellar transaction for creating a trustline, allowing an account to hold an issued asset. ' +
+            'Returns the unsigned transaction XDR. A trustline must be created before an account can receive or hold an issued asset (anything other than XLM).',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              source_account: {
+                type: 'string',
+                description: 'The Stellar public key (G...) that will hold the trustline.',
+              },
+              asset_code: {
+                type: 'string',
+                description: 'Asset code (e.g., USDC). Max 12 characters.',
+              },
+              asset_issuer: {
+                type: 'string',
+                description: 'Stellar public key (G...) of the asset issuer.',
+              },
+              limit: {
+                type: 'string',
+                description: 'Optional: Maximum amount of the asset the account can hold (e.g., "1000.50"). Defaults to max allowed.',
+              },
+              network: {
+                type: 'string',
+                enum: ['mainnet', 'testnet', 'futurenet', 'custom'],
+                description: 'Override the configured network for this call.',
+              },
+            },
+            required: ['source_account', 'asset_code', 'asset_issuer'],
+          },
+        },
       ],
     }));
 
@@ -319,6 +354,17 @@ class PulsarServer {
               throw new PulsarValidationError(`Invalid input for deploy_contract`, parsed.error.format());
             }
             const result = await deployContract(parsed.data);
+            return {
+              content: [{ type: 'text', text: JSON.stringify(result) }],
+            };
+          }
+
+          case 'create_trustline': {
+            const parsed = CreateTrustlineInputSchema.safeParse(args);
+            if (!parsed.success) {
+              throw new PulsarValidationError(`Invalid input for create_trustline`, parsed.error.format());
+            }
+            const result = await createTrustline(parsed.data);
             return {
               content: [{ type: 'text', text: JSON.stringify(result) }],
             };
