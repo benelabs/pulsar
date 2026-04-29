@@ -65,6 +65,8 @@
     "vitest": "^4.1.1"
   },
   "dependencies": {
+    "@ledgerhq/hw-app-str": "^7.7.1",
+    "@ledgerhq/hw-transport-node-hid": "^6.33.1",
     "@modelcontextprotocol/sdk": "^1.0.1",
     "@stellar/stellar-sdk": "^12.3.0",
     "dotenv": "^16.3.1",

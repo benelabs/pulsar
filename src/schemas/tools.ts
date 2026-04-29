@@ -215,3 +215,25 @@ export const DeployContractInputSchema = z.object({
 
 export type DeployContractInput = z.infer<typeof DeployContractInputSchema>;
 
+/**
+ * Schema for sign_with_ledger tool
+ *
+ * Inputs:
+ * - xdr: Unsigned transaction envelope XDR (required, base64)
+ * - derivation_path: BIP44 path (optional, default: m/44'/148'/0')
+ * - network: Optional network override
+ */
+export const SignWithLedgerInputSchema = z.object({
+  xdr: XdrBase64Schema,
+  derivation_path: z
+    .string()
+    .regex(/^(m\/)?44'\/148'\/[0-9]+'$/, {
+      message: "Invalid BIP44 path for Stellar. Expected format: 44'/148'/n' or m/44'/148'/n'",
+    })
+    .default("44'/148'/0'"),
+  network: NetworkSchema.optional(),
+});
+
+export type SignWithLedgerInput = z.infer<typeof SignWithLedgerInputSchema>;
+
+
