@@ -215,3 +215,22 @@ export const DeployContractInputSchema = z.object({
 
 export type DeployContractInput = z.infer<typeof DeployContractInputSchema>;
 
+/**
+ * Schema for check_network_status tool
+ *
+ * Inputs:
+ * - network: Optional network override (defaults to configured network)
+ * - timeout_ms: Per-probe timeout in milliseconds (500 – 30 000, default: 8 000)
+ */
+export const CheckNetworkStatusInputSchema = z.object({
+  network: NetworkSchema.optional(),
+  timeout_ms: z
+    .number()
+    .int()
+    .min(500, { message: "timeout_ms must be at least 500 ms" })
+    .max(30_000, { message: "timeout_ms must not exceed 30 000 ms" })
+    .default(8_000)
+    .optional(),
+});
+
+export type CheckNetworkStatusInput = z.infer<typeof CheckNetworkStatusInputSchema>;

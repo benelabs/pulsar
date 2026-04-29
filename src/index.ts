@@ -10,12 +10,14 @@ import { simulateTransaction } from './tools/simulate_transaction.js';
 import { getAccountBalance } from './tools/get_account_balance.js';
 import { computeVestingSchedule } from './tools/compute_vesting_schedule.js';
 import { deployContract } from './tools/deploy_contract.js';
+import { checkNetworkStatusTool } from './tools/check_network_status.js';
 import {
   GetAccountBalanceInputSchema,
   SubmitTransactionInputSchema,
   SimulateTransactionInputSchema,
   ComputeVestingScheduleInputSchema,
   DeployContractInputSchema,
+  CheckNetworkStatusInputSchema,
 } from './schemas/tools.js';
 import logger from './logger.js';
 import { PulsarError, PulsarNetworkError, PulsarValidationError } from './errors.js';
@@ -245,6 +247,30 @@ class PulsarServer {
             required: ['mode', 'source_account'],
           },
         },
+        {
+          name: 'check_network_status',
+          description:
+            'Probes Horizon and Soroban RPC connectivity for the configured (or specified) network. ' +
+            'Returns a structured diagnostic report including per-endpoint latency, HTTP status, ' +
+            'partition severity (none | partial | full), and actionable remediation steps. ' +
+            'Run this tool first when transactions fail unexpectedly.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              network: {
+                type: 'string',
+                enum: ['mainnet', 'testnet', 'futurenet', 'custom'],
+                description: 'Override the configured network for this probe.',
+              },
+              timeout_ms: {
+                type: 'number',
+                default: 8000,
+                description: 'Per-probe timeout in milliseconds (500 – 30 000). Default: 8 000.',
+              },
+            },
+            required: [],
+          },
+        },
       ],
     }));
 
@@ -319,6 +345,17 @@ class PulsarServer {
               throw new PulsarValidationError(`Invalid input for deploy_contract`, parsed.error.format());
             }
             const result = await deployContract(parsed.data);
+            return {
+              content: [{ type: 'text', text: JSON.stringify(result) }],
+            };
+          }
+
+          case 'check_network_status': {
+            const parsed = CheckNetworkStatusInputSchema.safeParse(args);
+            if (!parsed.success) {
+              throw new PulsarValidationError(`Invalid input for check_network_status`, parsed.error.format());
+            }
+            const result = await checkNetworkStatusTool(parsed.data);
             return {
               content: [{ type: 'text', text: JSON.stringify(result) }],
             };
