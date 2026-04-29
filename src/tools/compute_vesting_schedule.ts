@@ -1,5 +1,6 @@
 import {
   ComputeVestingScheduleInputSchema,
+  type ComputeVestingScheduleInput,
 } from "../schemas/tools.js";
 import { PulsarValidationError } from "../errors.js";
 import type { McpToolHandler } from "../types.js";
@@ -30,15 +31,7 @@ export interface VestingScheduleOutput {
  */
 export const computeVestingSchedule: McpToolHandler<
   typeof ComputeVestingScheduleInputSchema
-> = async (input: unknown) => {
-  const validatedInput = ComputeVestingScheduleInputSchema.safeParse(input);
-  if (!validatedInput.success) {
-    throw new PulsarValidationError(
-      "Invalid input for compute_vesting_schedule",
-      validatedInput.error.format()
-    );
-  }
-
+> = async (input: ComputeVestingScheduleInput) => {
   const {
     total_amount,
     start_timestamp,
@@ -47,7 +40,7 @@ export const computeVestingSchedule: McpToolHandler<
     release_frequency_seconds,
     beneficiary_type,
     current_timestamp,
-  } = validatedInput.data;
+  } = input;
 
   if (cliff_seconds >= vesting_duration_seconds) {
     throw new PulsarValidationError(

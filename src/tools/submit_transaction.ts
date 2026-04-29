@@ -1,37 +1,23 @@
 import {
-  Horizon,
   Keypair,
   Networks,
+  SorobanRpc,
   Transaction,
   FeeBumpTransaction,
   TransactionBuilder,
 } from "@stellar/stellar-sdk";
 
 import { config } from "../config.js";
-import {
-  SubmitTransactionInputSchema,
-} from "../schemas/tools.js";
+import type { SubmitTransactionInput } from "../schemas/tools.js";
 import type { McpToolHandler } from "../types.js";
 import logger from "../logger.js";
 import { PulsarNetworkError, PulsarValidationError } from "../errors.js";
+import { getHorizonServer } from "../services/horizon.js";
+import { getSorobanServer, getRpcUrl } from "../services/soroban-rpc.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-/** Return the Horizon base URL for the resolved network. */
-function resolveHorizonUrl(network: string): string {
-  if (config.horizonUrl) return config.horizonUrl;
-  switch (network) {
-    case "mainnet":
-      return "https://horizon.stellar.org";
-    case "futurenet":
-      return "https://horizon-futurenet.stellar.org";
-    case "testnet":
-    default:
-      return "https://horizon-testnet.stellar.org";
-  }
-}
 
 /** Return the stellar-base network passphrase for the resolved network. */
 function resolveNetworkPassphrase(network: string): string {
@@ -54,20 +40,10 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 // ---------------------------------------------------------------------------
 
 export const submitTransaction: McpToolHandler<
-  typeof SubmitTransactionInputSchema
-> = async (input: unknown) => {
-  // ------------------------------------------------------------------
-  // 0. Validate input schema before any processing
-  // ------------------------------------------------------------------
-  const validatedInput = SubmitTransactionInputSchema.safeParse(input);
-  if (!validatedInput.success) {
-    throw new PulsarValidationError("Invalid input for submit_transaction", validatedInput.error.format());
-  }
-
-  const validatedData = validatedInput.data;
-
+  typeof import("../schemas/tools.js").SubmitTransactionInputSchema
+> = async (input: SubmitTransactionInput) => {
+  const validatedData = input;
   const network = validatedData.network ?? config.stellarNetwork;
-  const horizonUrl = resolveHorizonUrl(network);
   const networkPassphrase = resolveNetworkPassphrase(network);
   const timeoutMs = validatedData.wait_timeout_ms ?? 30_000;
 
@@ -105,14 +81,14 @@ export const submitTransaction: McpToolHandler<
   }
 
   // ------------------------------------------------------------------
-  // 4. Submit via Horizon
+  // 4. Submit via Horizon (uses cached server instance)
   // ------------------------------------------------------------------
-  const server = new Horizon.Server(horizonUrl, { allowHttp: false });
+  const horizonServer = getHorizonServer(network);
 
-  let submitResponse: Horizon.HorizonApi.SubmitTransactionResponse;
+  let submitResponse: ReturnType<typeof horizonServer.submitTransaction>;
   try {
     logger.debug({ hash: tx.hash().toString('hex'), network }, "Submitting transaction to Horizon");
-    submitResponse = await server.submitTransaction(tx);
+    submitResponse = await horizonServer.submitTransaction(tx);
   } catch (err: unknown) {
     // Horizon wraps errors in a structured object
     const horizonErr = err as {
@@ -146,16 +122,14 @@ export const submitTransaction: McpToolHandler<
   };
 
   // ------------------------------------------------------------------
-  // 5. Optionally wait for finalisation via Soroban RPC
+  // 5. Optionally wait for finalisation via Soroban RPC (uses cached server)
   // ------------------------------------------------------------------
   if (!validatedData.wait_for_result) {
     return { ...baseResult, status: "SUBMITTED" };
   }
 
-  // Poll Soroban RPC (getTransaction) until terminal state or timeout
-  const rpcUrl = config.sorobanRpcUrl ?? resolveRpcUrl(network);
-  const { rpc: SorobanRpc } = await import("@stellar/stellar-sdk");
-  const rpcServer = new SorobanRpc.Server(rpcUrl, { allowHttp: false });
+  const rpcUrl = getRpcUrl(network);
+  const rpcServer = getSorobanServer(network);
 
   const deadline = Date.now() + timeoutMs;
   const POLL_INTERVAL_MS = 1_500;
@@ -224,18 +198,6 @@ export const submitTransaction: McpToolHandler<
 // Private helpers
 // ---------------------------------------------------------------------------
 
-function resolveRpcUrl(network: string): string {
-  switch (network) {
-    case "mainnet":
-      return "https://mainnet.sorobanrpc.com";
-    case "futurenet":
-      return "https://rpc-futurenet.stellar.org";
-    case "testnet":
-    default:
-      return "https://soroban-testnet.stellar.org";
-  }
-}
-
 function extractDiagnosticEvents(
   txStatus: Record<string, unknown>,
 ): unknown[] | null {
@@ -247,7 +209,7 @@ function extractDiagnosticEvents(
     ).diagnosticEventsXdr;
     if (!Array.isArray(events)) return null;
     return events.map((e) =>
-      typeof e?.toXDR === "function" ? e.toXDR("base64") : e,
+      typeof e?.toXDR === "function" ? e.toXDR("base64") : e
     );
   } catch {
     return null;

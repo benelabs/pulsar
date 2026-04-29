@@ -9,6 +9,8 @@ const NETWORK_HORIZON_URLS: Record<string, string> = {
   futurenet: "https://horizon-futurenet.stellar.org",
 };
 
+const horizonCache = new Map<string, Horizon.Server>();
+
 export function getHorizonUrl(network?: string): string {
   const net = network ?? config.stellarNetwork;
   if (net === "custom") {
@@ -19,5 +21,13 @@ export function getHorizonUrl(network?: string): string {
 }
 
 export function getHorizonServer(network?: string): Horizon.Server {
-  return new Horizon.Server(getHorizonUrl(network), { allowHttp: true });
+  const net = network ?? config.stellarNetwork;
+  const cacheKey = net;
+
+  if (!horizonCache.has(cacheKey)) {
+    const server = new Horizon.Server(getHorizonUrl(network), { allowHttp: true });
+    horizonCache.set(cacheKey, server);
+  }
+
+  return horizonCache.get(cacheKey)!;
 }

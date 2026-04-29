@@ -9,6 +9,8 @@ const NETWORK_RPC_URLS: Record<string, string> = {
   futurenet: "https://rpc-futurenet.stellar.org",
 };
 
+const rpcCache = new Map<string, SorobanRpc.Server>();
+
 export function getRpcUrl(network?: string): string {
   const net = network ?? config.stellarNetwork;
   if (net === "custom") {
@@ -20,5 +22,13 @@ export function getRpcUrl(network?: string): string {
 
 
 export function getSorobanServer(network?: string): SorobanRpc.Server {
-  return new SorobanRpc.Server(getRpcUrl(network), { allowHttp: false });
+  const net = network ?? config.stellarNetwork;
+  const cacheKey = net;
+
+  if (!rpcCache.has(cacheKey)) {
+    const server = new SorobanRpc.Server(getRpcUrl(network), { allowHttp: false });
+    rpcCache.set(cacheKey, server);
+  }
+
+  return rpcCache.get(cacheKey)!;
 }

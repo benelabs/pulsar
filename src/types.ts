@@ -21,12 +21,8 @@ export type McpToolHandler<T extends z.ZodTypeAny = z.ZodTypeAny> = (
 ) => Promise<Record<string, unknown>>;
 
 /**
- * Common Zod schemas for tool inputs.
+ * Common types for tool results and errors.
  */
-export const AccountIdSchema = z.string().startsWith("G").length(56).describe("A Stellar public key starting with G.");
-export const ContractIdSchema = z.string().startsWith("C").length(56).describe("A Soroban contract ID starting with C.");
-export const XdrSchema = z.string().describe("Base64-encoded XDR blob.");
-
 export interface ErrorResponse {
   error: {
     code: number;

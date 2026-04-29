@@ -555,7 +555,7 @@ Decode a raw base64-encoded XDR ledger entry into a human-readable JSON structur
 | Parameter | Type | Required | Description |
 |---|---|---|---|
 | `xdr` | `string` | Yes | The base64-encoded XDR of the ledger entry (key or value) |
-| `entry_type` | `string` | No | Hint for decoding: `account`, `trustline`, `contract_data`, `contract_code`, `offer`, `data` |
+| `entry_type` | `string` | No | Hint for decoding: `account`, `trustline`, `contract_data`, `contract_code`, `offer`, `data` (optional, helps with ambiguous XDRs) |
 
 **Output:**
 

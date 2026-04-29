@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { benchmarkGas } from "./benchmark_gas";
+import { benchmarkGas } from "./benchmark_gas.js";
 
 describe("benchmarkGas", () => {
   it("should return cpu, memory, and pulsarGas fields", async () => {

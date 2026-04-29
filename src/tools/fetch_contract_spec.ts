@@ -1,20 +1,13 @@
-import { z } from "zod";
-
-import { ContractIdSchema } from "../types.js";
+import { ContractIdSchema } from "../schemas/index.js";
+import {
+  FetchContractSpecInputSchema,
+  type FetchContractSpecInput,
+} from "../schemas/tools.js";
 import { runStellarCli } from "../services/stellar-cli.js";
 import { getRpcUrl } from "../services/soroban-rpc.js";
 import { config } from "../config.js";
 import { PulsarValidationError } from "../errors.js";
-
-export const fetchContractSpecSchema = z.object({
-  contract_id: ContractIdSchema,
-  network: z
-    .enum(["mainnet", "testnet", "futurenet", "custom"])
-    .optional()
-    .describe("Override the active network for this call."),
-});
-
-export type FetchContractSpecInput = z.infer<typeof fetchContractSpecSchema>;
+import type { McpToolHandler } from "../types.js";
 
 export interface ContractFunction {
   name: string;
@@ -37,9 +30,9 @@ export interface FetchContractSpecOutput {
   raw_xdr: string;
 }
 
-export async function fetchContractSpec(
-  input: FetchContractSpecInput
-): Promise<FetchContractSpecOutput> {
+export const fetchContractSpec: McpToolHandler<
+  typeof FetchContractSpecInputSchema
+> = async (input: FetchContractSpecInput) => {
   const network = input.network ?? config.stellarNetwork;
   const rpcUrl = getRpcUrl(network);
 
@@ -67,7 +60,7 @@ export async function fetchContractSpec(
   }
 
   return parseCliSpec(raw, input.contract_id, network);
-}
+};
 
 
 // ---------------------------------------------------------------------------

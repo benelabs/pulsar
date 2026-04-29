@@ -7,7 +7,8 @@ import {
 
 import { config } from "../config.js";
 import { getSorobanServer } from "../services/soroban-rpc.js";
-import { SimulateTransactionInput } from "../schemas/tools.js";
+import { PulsarValidationError } from "../errors.js";
+import type { SimulateTransactionInput } from "../schemas/tools.js";
 
 export interface SimulateTransactionOutput {
   status: string;
@@ -26,6 +27,8 @@ export interface SimulateTransactionOutput {
   error?: string;
   restore_needed?: boolean;
 }
+
+
 
 /**
  * Helper to resolve the stellar-base network passphrase.
@@ -53,7 +56,7 @@ export async function simulateTransaction(
   try {
     tx = TransactionBuilder.fromXDR(input.xdr, networkPassphrase);
   } catch (err) {
-    throw new Error(`Failed to parse XDR: ${(err as Error).message}`);
+    throw new PulsarValidationError(`Failed to parse XDR: ${(err as Error).message}`);
   }
 
   const result = await server.simulateTransaction(tx);
