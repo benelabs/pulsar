@@ -1,18 +1,13 @@
-import {
-  TransactionBuilder,
-  Networks,
-  SorobanRpc,
-  scValToNative,
-} from "@stellar/stellar-sdk";
+import { TransactionBuilder, Networks, SorobanRpc, scValToNative } from '@stellar/stellar-sdk';
 
-import { config } from "../config.js";
-import { getSorobanServer } from "../services/soroban-rpc.js";
-import { SimulateTransactionInput } from "../schemas/tools.js";
+import { config } from '../config.js';
+import { getSorobanServer } from '../services/soroban-rpc.js';
+import { SimulateTransactionInput } from '../schemas/tools.js';
 
 export interface SimulateTransactionOutput {
   status: string;
   return_value?: string;
-  return_value_native?: any;
+  return_value_native?: unknown;
   cost: {
     cpu_instructions: string;
     memory_bytes: string;
@@ -32,11 +27,11 @@ export interface SimulateTransactionOutput {
  */
 function resolveNetworkPassphrase(network: string): string {
   switch (network) {
-    case "mainnet":
+    case 'mainnet':
       return Networks.PUBLIC;
-    case "futurenet":
+    case 'futurenet':
       return Networks.FUTURENET;
-    case "testnet":
+    case 'testnet':
     default:
       return Networks.TESTNET;
   }
@@ -59,67 +54,63 @@ export async function simulateTransaction(
   const result = await server.simulateTransaction(tx);
 
   const output: SimulateTransactionOutput = {
-    status: "",
+    status: '',
     cost: {
-      cpu_instructions: "0",
-      memory_bytes: "0",
+      cpu_instructions: '0',
+      memory_bytes: '0',
     },
     footprint: {
       read_only: [],
       read_write: [],
     },
-    min_resource_fee: "0",
+    min_resource_fee: '0',
     events: [],
   };
 
   if (SorobanRpc.Api.isSimulationSuccess(result)) {
-    output.status = "SUCCESS";
-    
+    output.status = 'SUCCESS';
+
     // Narrowed types might still be tricky depending on SDK version
-    const successRes = result as any;
-    
-    output.cost.cpu_instructions = successRes.cost?.cpuIns || "0";
-    output.cost.memory_bytes = successRes.cost?.memBytes || "0";
-    output.min_resource_fee = successRes.minResourceFee || "0";
+    const successRes = result as SorobanRpc.Api.SimulateTransactionSuccessResponse;
+
+    output.cost.cpu_instructions = successRes.cost?.cpuInsns || '0';
+    output.cost.memory_bytes = successRes.cost?.memBytes || '0';
+    output.min_resource_fee = successRes.minResourceFee || '0';
 
     if (successRes.result && successRes.result.retval) {
-      output.return_value = successRes.result.retval.toXDR("base64");
+      output.return_value = successRes.result.retval.toXDR('base64');
       try {
         output.return_value_native = scValToNative(successRes.result.retval);
       } catch (e) {
-        output.return_value_native = "Failed to decode scVal: " + (e as Error).message;
+        output.return_value_native = 'Failed to decode scVal: ' + (e as Error).message;
       }
     }
-    
+
     // Map footprint
     if (successRes.transactionData) {
       const resources = successRes.transactionData.build().resources();
       if (resources && resources.footprint()) {
-          const footprint = resources.footprint();
-          output.footprint.read_only = footprint.readOnly().map((e: any) => e.toXDR("base64"));
-          output.footprint.read_write = footprint.readWrite().map((e: any) => e.toXDR("base64"));
+        const footprint = resources.footprint();
+        output.footprint.read_only = footprint.readOnly().map((e) => e.toXDR('base64'));
+        output.footprint.read_write = footprint.readWrite().map((e) => e.toXDR('base64'));
       }
     }
 
     // Map events
     if (successRes.events) {
-      output.events = successRes.events.map((e: any) => e.toXDR("base64"));
+      output.events = successRes.events.map((e) => e.toXDR('base64'));
     }
-  } else if ((SorobanRpc.Api as any).isSimulationRestore && (SorobanRpc.Api as any).isSimulationRestore(result)) {
-    // Newer SDK versions use isSimulationRestore
-    output.status = "RESTORE_NEEDED";
+  } else if (SorobanRpc.Api.isSimulationRestore(result)) {
+    output.status = 'RESTORE_NEEDED';
     output.restore_needed = true;
-    output.error = "The transaction cannot be simulated because it requires ledger entry restoration. Please submit a restore operation first.";
-  } else if ((SorobanRpc.Api as any).isSimulationRestoreNeeded && (SorobanRpc.Api as any).isSimulationRestoreNeeded(result)) {
-    output.status = "RESTORE_NEEDED";
-    output.restore_needed = true;
-    output.error = "The transaction cannot be simulated because it requires ledger entry restoration. Please submit a restore operation first.";
+    output.error =
+      'The transaction cannot be simulated because it requires ledger entry restoration. Please submit a restore operation first.';
   } else if (SorobanRpc.Api.isSimulationError(result)) {
-    output.status = "ERROR";
-    const errorRes = result as any;
+    output.status = 'ERROR';
+    const errorRes = result as SorobanRpc.Api.SimulateTransactionErrorResponse;
     output.error = errorRes.error;
     if (errorRes.events) {
-      output.events = errorRes.events.map((e: any) => e.toXDR("base64"));
+      output.events = errorRes.events.map((e) => e.toXDR('base64'));
     }
   }
 
