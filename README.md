@@ -714,6 +714,7 @@ Builds a Stellar transaction for deploying a Soroban smart contract. Supports tw
 | `factory_contract_id` | `string` | No | Factory contract ID (`C...`). **Required for factory mode.** |
 | `deploy_function` | `string` | No | Factory deploy function name. Default: `deploy` |
 | `deploy_args` | `array` | No | Typed SCVal arguments: `[{ type?: 'symbol'\|'string'\|'u32'\|'i32'\|'u64'\|'i64'\|'u128'\|'i128'\|'bool'\|'address'\|'bytes'\|'void', value: any }]` |
+| `optimize_cross_contract_call` | `boolean` | No | Factory mode only. If `true`, simulates and assembles the transaction to minimize cross-contract resource overhead before returning XDR. Default: `false` |
 | `network` | `string` | No | Override network: `mainnet`, `testnet`, `futurenet`, `custom` |
 
 **Output (direct mode):**
@@ -734,6 +735,11 @@ Builds a Stellar transaction for deploying a Soroban smart contract. Supports tw
 {
   "mode": "factory",
   "transaction_xdr": "AAAAAgAAAAE...",
+  "optimization": {
+    "min_resource_fee": "2500",
+    "cpu_instructions": "345",
+    "memory_bytes": "678"
+  },
   "network": "testnet",
   "source_account": "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5"
 }
