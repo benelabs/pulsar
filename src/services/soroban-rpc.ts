@@ -2,6 +2,7 @@ import { SorobanRpc } from "@stellar/stellar-sdk";
 
 import { config } from "../config.js";
 import { PulsarValidationError } from "../errors.js";
+import { accessControl } from "./access-control.js";
 
 const NETWORK_RPC_URLS: Record<string, string> = {
   mainnet: "https://soroban-rpc.stellar.org",
@@ -13,9 +14,12 @@ export function getRpcUrl(network?: string): string {
   const net = network ?? config.stellarNetwork;
   if (net === "custom") {
     if (!config.sorobanRpcUrl) throw new PulsarValidationError("SOROBAN_RPC_URL must be set for custom network");
+    accessControl.assertAllowed(config.sorobanRpcUrl);
     return config.sorobanRpcUrl;
   }
-  return NETWORK_RPC_URLS[net] ?? NETWORK_RPC_URLS["testnet"];
+  const url = NETWORK_RPC_URLS[net] ?? NETWORK_RPC_URLS["testnet"];
+  accessControl.assertAllowed(url);
+  return url;
 }
 
 // Reuse one SorobanRpc.Server per unique URL — avoids repeated connection
