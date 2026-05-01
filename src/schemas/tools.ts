@@ -282,6 +282,29 @@ export const DeployContractInputSchema = z.object({
 export type DeployContractInput = z.infer<typeof DeployContractInputSchema>;
 
 /**
+<<<<<<< feat/fee-on-transfer-support-184
+ * Schema for get_token_transfer_fee tool
+ *
+ * Inputs:
+ * - contract_id: Soroban token contract ID (required)
+ * - amount: Amount to transfer (required)
+ * - from: Sender address (required)
+ * - to: Recipient address (required)
+ * - network: Optional network override
+ */
+export const GetTokenTransferFeeInputSchema = z.object({
+  contract_id: ContractIdSchema.describe('The Soroban token contract ID (C...)'),
+  amount: z
+    .string()
+    .regex(/^\d+$/, { message: 'Amount must be a numeric string' })
+    .describe('Amount to transfer (in smallest unit, e.g. stroops)'),
+  from: z.string().describe('Stellar address of the sender (G... or C...)'),
+  to: z.string().describe('Stellar address of the recipient (G... or C...)'),
+  network: NetworkSchema.optional(),
+});
+
+export type GetTokenTransferFeeInput = z.infer<typeof GetTokenTransferFeeInputSchema>;
+=======
  * Schema for generate_contract_client tool
  *
  * Inputs:
@@ -483,3 +506,4 @@ export const BatchEventsInputSchema = z.object({
 });
 
 export type BatchEventsInput = z.infer<typeof BatchEventsInputSchema>;
+>>>>>>> main

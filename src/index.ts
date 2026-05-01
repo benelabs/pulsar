@@ -22,6 +22,7 @@ import { sorobanMath } from './tools/soroban_math.js';
 import { decodeLedgerEntryTool, decodeLedgerEntrySchema } from './tools/decode_ledger_entry.js';
 import { computeVestingSchedule } from './tools/compute_vesting_schedule.js';
 import { deployContract } from './tools/deploy_contract.js';
+import { getTokenTransferFee } from './tools/get_token_transfer_fee.js';
 import { generateContractClient } from './tools/generate_contract_client.js';
 import { buildConditionalTransaction } from './tools/build_conditional_transaction.js';
 import { batchEvents } from './tools/batch_events.js';
@@ -35,6 +36,7 @@ import {
   SorobanMathInputSchema,
   ComputeVestingScheduleInputSchema,
   DeployContractInputSchema,
+  GetTokenTransferFeeInputSchema,
   GenerateContractClientInputSchema,
   SoulboundTokenInputSchema,
   BuildConditionalTransactionInputSchema,
@@ -146,6 +148,8 @@ class PulsarServer {
         },
         {
           name: 'fetch_contract_spec',
+          description:
+            'Fetch the ABI/interface spec of a deployed Soroban contract. Returns decoded function signatures, parameter types, and emitted event schemas.',
           description:
             'Fetch the ABI/interface spec of a deployed Soroban contract. Returns decoded function signatures, parameter types, and emitted event schemas.',
           description:
@@ -550,6 +554,38 @@ class PulsarServer {
             },
           },
         },
+        {
+          name: 'get_token_transfer_fee',
+          description:
+            'Simulates a Soroban token transfer to detect any Fee-on-Transfer (FoT) logic and calculate the net received amount.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              contract_id: {
+                type: 'string',
+                description: 'The Soroban token contract ID (C...)',
+              },
+              amount: {
+                type: 'string',
+                description: 'Amount to transfer (numeric string in smallest unit)',
+              },
+              from: {
+                type: 'string',
+                description: 'Stellar address of the sender (G... or C...)',
+              },
+              to: {
+                type: 'string',
+                description: 'Stellar address of the recipient (G... or C...)',
+              },
+              network: {
+                type: 'string',
+                enum: ['mainnet', 'testnet', 'futurenet', 'custom'],
+                description: 'Override the configured network for this call.',
+              },
+            },
+            required: ['contract_id', 'amount', 'from', 'to'],
+          },
+        },
       ],
     }));
 
@@ -747,6 +783,20 @@ class PulsarServer {
               );
             }
             const result = await generateContractClient(parsed.data);
+            return {
+              content: [{ type: 'text', text: JSON.stringify(result) }],
+            };
+          }
+
+          case 'get_token_transfer_fee': {
+            const parsed = GetTokenTransferFeeInputSchema.safeParse(args);
+            if (!parsed.success) {
+              throw new PulsarValidationError(
+                `Invalid input for get_token_transfer_fee`,
+                parsed.error.format()
+              );
+            }
+            const result = await getTokenTransferFee(parsed.data);
             return {
               content: [{ type: 'text', text: JSON.stringify(result) }],
             };
