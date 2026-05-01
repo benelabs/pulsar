@@ -34,6 +34,7 @@ import {
   SorobanMathInputSchema,
   ComputeVestingScheduleInputSchema,
   DeployContractInputSchema,
+  SoulboundTokenInputSchema,
   BuildConditionalTransactionInputSchema,
   BatchEventsInputSchema,
 } from './schemas/tools.js';
@@ -408,6 +409,41 @@ class PulsarServer {
           },
         },
         {
+          name: 'soulbound_token',
+          description:
+            'Build an unsigned Soroban transaction XDR for Soulbound Token (SBT) operations on a deployed SBT contract. ' +
+            'SBTs are non-transferable identity/reputation tokens. ' +
+            'Actions: mint (issue token to recipient), revoke (invalidate token by ID), query (check ownership — simulate to read result). ' +
+            'Sign and submit the returned XDR via submit_transaction.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              action: {
+                type: 'string',
+                enum: ['mint', 'revoke', 'query'],
+                description: 'SBT operation to perform.',
+              },
+              contract_id: {
+                type: 'string',
+                description: 'Deployed SBT contract address (C...).',
+              },
+              source_account: {
+                type: 'string',
+                description: 'Stellar public key (G...) that signs and pays fees.',
+              },
+              recipient: {
+                type: 'string',
+                description: 'Recipient public key (G...). Required for mint and query.',
+              },
+              token_id: {
+                type: 'string',
+                description:
+                  'Unique token identifier. Required for revoke; auto-generated for mint if omitted.',
+              },
+              metadata: {
+                type: 'string',
+                description:
+                  'Arbitrary metadata string (e.g. JSON) attached to the token. Required for mint.',
           name: 'build_conditional_transaction',
           description:
             'Embeds Stellar-native preconditions (time bounds, ledger bounds, minimum sequence guards) ' +
@@ -475,6 +511,7 @@ class PulsarServer {
                 description: 'Override the configured network for this call.',
               },
             },
+            required: ['action', 'contract_id', 'source_account'],
             required: ['xdr', 'conditions'],
           },
         },
@@ -643,6 +680,15 @@ class PulsarServer {
             };
           }
 
+          case 'soulbound_token': {
+            const parsed = SoulboundTokenInputSchema.safeParse(args);
+            if (!parsed.success) {
+              throw new PulsarValidationError(
+                `Invalid input for soulbound_token`,
+                parsed.error.format()
+              );
+            }
+            const result = await soulboundToken(parsed.data);
           case 'build_conditional_transaction': {
             const parsed = BuildConditionalTransactionInputSchema.safeParse(args);
             if (!parsed.success) {

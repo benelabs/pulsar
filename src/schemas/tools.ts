@@ -282,6 +282,40 @@ export const DeployContractInputSchema = z.object({
 export type DeployContractInput = z.infer<typeof DeployContractInputSchema>;
 
 /**
+ * Schema for soulbound_token tool
+ *
+ * Actions:
+ * - mint:   Issue a non-transferable SBT to a recipient (requires recipient, metadata).
+ * - revoke: Revoke an existing SBT by token_id (requires token_id).
+ * - query:  Build a read-only has_token invocation (requires recipient; simulate to read result).
+ */
+export const SoulboundTokenInputSchema = z
+  .object({
+    action: z.enum(['mint', 'revoke', 'query']).describe('SBT operation: mint, revoke, or query'),
+    contract_id: ContractIdSchema.describe('Deployed SBT contract address (C...)'),
+    source_account: StellarPublicKeySchema.describe(
+      'Stellar public key (G...) that signs and pays fees'
+    ),
+    recipient: StellarPublicKeySchema.optional().describe(
+      'Recipient public key (G...). Required for mint and query.'
+    ),
+    token_id: z
+      .string()
+      .min(1)
+      .optional()
+      .describe(
+        'Unique token identifier. Required for revoke; auto-generated for mint if omitted.'
+      ),
+    metadata: z
+      .string()
+      .min(1)
+      .optional()
+      .describe('Arbitrary metadata string (e.g. JSON) attached to the token. Required for mint.'),
+    network: NetworkSchema.optional(),
+  })
+  .describe('Input for the soulbound_token tool');
+
+export type SoulboundTokenInput = z.infer<typeof SoulboundTokenInputSchema>;
  * Schema for build_conditional_transaction tool
  *
  * Takes an existing unsigned transaction XDR and embeds Stellar-native
