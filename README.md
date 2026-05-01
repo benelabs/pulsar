@@ -896,11 +896,29 @@ pulsar/
 ├── tests/
 │   ├── unit/
 │   └── integration/
+├── contracts/                  # Soroban Rust workspaces
+│   └── reference/            # Reference contracts and test suite
 ├── .env.example
 ├── package.json
 ├── tsconfig.json
 └── README.md
 ```
+
+### Reference Contracts
+
+To ensure pulsar's toolsets (`simulate_transaction`, `fetch_contract_spec`, `decode_ledger_entry`) are rigorously verified, we maintain a `contracts/` directory containing "Reference Contracts". These are standard Soroban Rust contracts that implement various features (events, structs, cross-contract calls, conditional panics).
+
+You can compile these contracts to WASM and run their comprehensive Rust unit tests via:
+
+```bash
+# Build the reference contracts (generates AI-ready WASM specs)
+npm run build:contracts
+
+# Run the comprehensive unit test suite
+npm run test:contracts
+```
+
+These reference WASM files provide an exact baseline to verify the outputs of pulsar tools.
 
 ### Adding a New Tool
 
