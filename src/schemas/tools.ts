@@ -316,3 +316,130 @@ export const SoulboundTokenInputSchema = z
   .describe('Input for the soulbound_token tool');
 
 export type SoulboundTokenInput = z.infer<typeof SoulboundTokenInputSchema>;
+ * Schema for build_conditional_transaction tool
+ *
+ * Takes an existing unsigned transaction XDR and embeds Stellar-native
+ * preconditions (time bounds, ledger bounds, sequence guards) into the
+ * envelope. Optionally validates those conditions against the live ledger
+ * before returning.
+ *
+ * Inputs:
+ * - xdr: Unsigned transaction envelope to attach conditions to (required)
+ * - conditions: At least one of time_bounds | ledger_bounds | min_sequence_*
+ * - validate_now: Check conditions against current ledger state (default: false)
+ * - network: Optional network override
+ */
+export const BuildConditionalTransactionInputSchema = z
+  .object({
+    xdr: XdrBase64Schema,
+    conditions: z
+      .object({
+        time_bounds: z
+          .object({
+            min_time: z
+              .number()
+              .int()
+              .nonnegative()
+              .optional()
+              .describe('Earliest Unix timestamp at which the transaction is valid'),
+            max_time: z
+              .number()
+              .int()
+              .nonnegative()
+              .optional()
+              .describe('Latest Unix timestamp at which the transaction is valid (0 = no expiry)'),
+          })
+          .optional()
+          .describe('Validity window expressed as Unix timestamps'),
+        ledger_bounds: z
+          .object({
+            min_ledger: z
+              .number()
+              .int()
+              .nonnegative()
+              .optional()
+              .describe('Minimum ledger sequence at which the transaction is valid'),
+            max_ledger: z
+              .number()
+              .int()
+              .nonnegative()
+              .optional()
+              .describe('Maximum ledger sequence at which the transaction is valid (0 = no cap)'),
+          })
+          .optional()
+          .describe('Validity window expressed as ledger sequence numbers'),
+        min_sequence_number: z
+          .string()
+          .regex(/^\d+$/, { message: 'Must be a non-negative integer string' })
+          .optional()
+          .describe(
+            'Source account must have at least this sequence number for the transaction to be valid'
+          ),
+        min_sequence_age: z
+          .number()
+          .int()
+          .nonnegative()
+          .optional()
+          .describe(
+            'Minimum seconds elapsed since the source account last changed its sequence number'
+          ),
+        min_sequence_ledger_gap: z
+          .number()
+          .int()
+          .nonnegative()
+          .optional()
+          .describe(
+            'Minimum number of ledgers that must have closed since the source account last changed its sequence number'
+          ),
+      })
+      .describe('Preconditions to embed in the transaction envelope'),
+    validate_now: z
+      .boolean()
+      .default(false)
+      .describe(
+        'When true, evaluate each condition against the current ledger/account state and report which ones pass or fail'
+      ),
+    network: NetworkSchema.optional(),
+  })
+  .refine(
+    (data) => {
+      const c = data.conditions;
+      return (
+        c.time_bounds !== undefined ||
+        c.ledger_bounds !== undefined ||
+        c.min_sequence_number !== undefined ||
+        c.min_sequence_age !== undefined ||
+        c.min_sequence_ledger_gap !== undefined
+      );
+    },
+    { message: 'At least one condition must be specified', path: ['conditions'] }
+  );
+
+export type BuildConditionalTransactionInput = z.infer<
+  typeof BuildConditionalTransactionInputSchema
+>;
+ * Schema for batch_events tool
+ *
+ * Inputs:
+ * - events: Array of base64 XDR strings (ContractEvent or DiagnosticEvent) to batch
+ * - group_by: Strategy for grouping events (default: contract_and_topic)
+ * - deduplicate: Whether to collapse identical events into one with a count (default: true)
+ */
+export const BatchEventsInputSchema = z.object({
+  events: z
+    .array(XdrBase64Schema)
+    .min(1, { message: 'At least one event XDR is required' })
+    .describe('Array of base64 XDR Soroban ContractEvent or DiagnosticEvent strings'),
+  group_by: z
+    .enum(['contract', 'topic', 'contract_and_topic'])
+    .default('contract_and_topic')
+    .describe(
+      "Grouping strategy: 'contract' (by contract ID), 'topic' (by event topics), or 'contract_and_topic' (both)"
+    ),
+  deduplicate: z
+    .boolean()
+    .default(true)
+    .describe('Collapse identical events into a single entry with an occurrence count'),
+});
+
+export type BatchEventsInput = z.infer<typeof BatchEventsInputSchema>;
