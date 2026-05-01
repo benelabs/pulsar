@@ -22,6 +22,7 @@ import { sorobanMath } from './tools/soroban_math.js';
 import { decodeLedgerEntryTool, decodeLedgerEntrySchema } from './tools/decode_ledger_entry.js';
 import { computeVestingSchedule } from './tools/compute_vesting_schedule.js';
 import { deployContract } from './tools/deploy_contract.js';
+import { buildConditionalTransaction } from './tools/build_conditional_transaction.js';
 import { batchEvents } from './tools/batch_events.js';
 
 import {
@@ -33,6 +34,7 @@ import {
   SorobanMathInputSchema,
   ComputeVestingScheduleInputSchema,
   DeployContractInputSchema,
+  BuildConditionalTransactionInputSchema,
   BatchEventsInputSchema,
 } from './schemas/tools.js';
 
@@ -141,6 +143,8 @@ class PulsarServer {
         },
         {
           name: 'fetch_contract_spec',
+          description:
+            'Fetch the ABI/interface spec of a deployed Soroban contract. Returns decoded function signatures, parameter types, and emitted event schemas.',
           description:
             'Fetch the ABI/interface spec of a deployed Soroban contract. Returns decoded function signatures, parameter types, and emitted event schemas.',
           name: 'emergency_pause',
@@ -403,6 +407,77 @@ class PulsarServer {
             required: ['action'],
           },
         },
+        {
+          name: 'build_conditional_transaction',
+          description:
+            'Embeds Stellar-native preconditions (time bounds, ledger bounds, minimum sequence guards) ' +
+            'into an existing unsigned transaction XDR. The modified transaction is only accepted by the ' +
+            'network when every condition is satisfied at submission time. ' +
+            'Optionally validates conditions against the current ledger before returning.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              xdr: {
+                type: 'string',
+                description: 'Base64-encoded XDR of the unsigned transaction envelope (v1 format).',
+              },
+              conditions: {
+                type: 'object',
+                description: 'Preconditions to embed. At least one field is required.',
+                properties: {
+                  time_bounds: {
+                    type: 'object',
+                    description: 'Validity window as Unix timestamps.',
+                    properties: {
+                      min_time: { type: 'number', description: 'Earliest valid Unix timestamp.' },
+                      max_time: {
+                        type: 'number',
+                        description: 'Latest valid Unix timestamp (0 = no expiry).',
+                      },
+                    },
+                  },
+                  ledger_bounds: {
+                    type: 'object',
+                    description: 'Validity window as ledger sequence numbers.',
+                    properties: {
+                      min_ledger: { type: 'number', description: 'Minimum valid ledger sequence.' },
+                      max_ledger: {
+                        type: 'number',
+                        description: 'Maximum valid ledger sequence (0 = no cap).',
+                      },
+                    },
+                  },
+                  min_sequence_number: {
+                    type: 'string',
+                    description: 'Source account must have at least this sequence number.',
+                  },
+                  min_sequence_age: {
+                    type: 'number',
+                    description:
+                      'Minimum seconds since the source account last bumped its sequence.',
+                  },
+                  min_sequence_ledger_gap: {
+                    type: 'number',
+                    description:
+                      'Minimum ledgers closed since the source account last bumped its sequence.',
+                  },
+                },
+              },
+              validate_now: {
+                type: 'boolean',
+                default: false,
+                description:
+                  'Check conditions against the current ledger and report pass/fail for each.',
+              },
+              network: {
+                type: 'string',
+                enum: ['mainnet', 'testnet', 'futurenet', 'custom'],
+                description: 'Override the configured network for this call.',
+              },
+            },
+            required: ['xdr', 'conditions'],
+          },
+        },
       ],
     }));
 
@@ -563,6 +638,20 @@ class PulsarServer {
               throw new PulsarValidationError(`Invalid input for manage_restricted_addresses`, parsed.error.format());
             }
             const result = await manageRestrictedAddresses(parsed.data);
+            return {
+              content: [{ type: 'text', text: JSON.stringify(result) }],
+            };
+          }
+
+          case 'build_conditional_transaction': {
+            const parsed = BuildConditionalTransactionInputSchema.safeParse(args);
+            if (!parsed.success) {
+              throw new PulsarValidationError(
+                `Invalid input for build_conditional_transaction`,
+                parsed.error.format()
+              );
+            }
+            const result = await buildConditionalTransaction(parsed.data);
             return {
               content: [{ type: 'text', text: JSON.stringify(result) }],
             };
