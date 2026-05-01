@@ -1,0 +1,69 @@
+name: Soroban Gas Report
+
+on:
+  pull_request:
+    paths:
+      - 'contracts/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  gas-report:
+    name: Gas Profiling & Comparison
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR Branch
+        uses: actions/checkout@v4
+        with:
+          path: pr-branch
+
+      - name: Checkout Base Branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.base_ref }}
+          path: base-branch
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-unknown
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-gas-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-gas-
+
+      - name: Profile Base Branch
+        working-directory: base-branch
+        run: |
+          python3 ../pr-branch/scripts/compare_gas.py profile
+          mv gas_metrics.json ../base_metrics.json || echo "{}" > ../base_metrics.json
+
+      - name: Profile PR Branch
+        working-directory: pr-branch
+        run: |
+          python3 scripts/compare_gas.py profile
+          mv gas_metrics.json ../pr_metrics.json
+
+      - name: Compare Results
+        working-directory: pr-branch
+        run: |
+          python3 scripts/compare_gas.py compare ../base_metrics.json ../pr_metrics.json
+
+      - name: Post PR Comment
+        uses: thollander/actions-comment-pull-request@v2
+        with:
+          filePath: pr-branch/gas_report.md
+          comment_tag: gas-report-pulsar
+          mode: recreate
