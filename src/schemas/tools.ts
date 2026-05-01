@@ -94,7 +94,86 @@ export const SimulateTransactionInputSchema = z.object({
 
 export type SimulateTransactionInput = z.infer<typeof SimulateTransactionInputSchema>;
 
+const fixedArithFields = {
+  a: z.string().min(1),
+  b: z.string().min(1),
+  decimals: z.number().int().min(0).max(18).default(7),
+};
+
+export const SorobanMathInputSchema = z.discriminatedUnion('operation', [
+  z.object({ operation: z.literal('fixed_add'), ...fixedArithFields }),
+  z.object({ operation: z.literal('fixed_sub'), ...fixedArithFields }),
+  z.object({ operation: z.literal('fixed_mul'), ...fixedArithFields }),
+  z.object({ operation: z.literal('fixed_div'), ...fixedArithFields }),
+  z.object({
+    operation: z.literal('mean'),
+    values: z.array(z.string().min(1)).min(1),
+    decimals: z.number().int().min(0).max(18).default(7),
+  }),
+  z.object({
+    operation: z.literal('weighted_mean'),
+    values: z.array(z.string().min(1)).min(1),
+    weights: z.array(z.string().min(1)).min(1),
+    decimals: z.number().int().min(0).max(18).default(7),
+  }),
+  z.object({
+    operation: z.literal('std_dev'),
+    values: z.array(z.string().min(1)).min(2),
+    decimals: z.number().int().min(0).max(18).default(7),
+  }),
+  z.object({
+    operation: z.literal('twap'),
+    prices: z.array(z.object({ price: z.string().min(1), timestamp: z.number().int() })).min(2),
+    decimals: z.number().int().min(0).max(18).default(7),
+  }),
+  z.object({
+    operation: z.literal('compound_interest'),
+    principal: z.string().min(1),
+    rate_bps: z.number().int().min(0),
+    periods: z.number().int().min(1),
+    compounds_per_period: z.number().int().min(1).default(1),
+    decimals: z.number().int().min(0).max(18).default(7),
+  }),
+  z.object({ operation: z.literal('basis_points_to_percent'), value: z.number() }),
+  z.object({ operation: z.literal('percent_to_basis_points'), value: z.number() }),
+]);
+
+export type SorobanMathInput = z.infer<typeof SorobanMathInputSchema>;
 /**
+ * Schema for emergency_pause tool (circuit breaker)
+ *
+ * Inputs:
+ * - contract_id: Soroban contract address (required)
+ * - network: Optional network override
+ * - action: inspect | pause | unpause (default: inspect)
+ * - admin_address: Optional admin address for invocation args
+ */
+export const EmergencyPauseInputSchema = z.object({
+  contract_id: ContractIdSchema,
+  network: NetworkSchema.optional(),
+  action: z.enum(["inspect", "pause", "unpause"]).default("inspect"),
+  admin_address: z.string().optional(),
+});
+
+export type EmergencyPauseInput = z.infer<typeof EmergencyPauseInputSchema>;
+
+/**
+ * Schema for generate_contract_docs tool
+ *
+ * Inputs:
+ * - contract_id: Soroban contract address (required)
+ * - network: Optional network override
+ * - format: markdown | text (default: markdown)
+ * - include_events: Whether to include events (default: true)
+ */
+export const GenerateContractDocsInputSchema = z.object({
+  contract_id: ContractIdSchema,
+  network: NetworkSchema.optional(),
+  format: z.enum(["markdown", "text"]).default("markdown"),
+  include_events: z.boolean().default(true),
+});
+
+export type GenerateContractDocsInput = z.infer<typeof GenerateContractDocsInputSchema>;
  * Schema for compute_vesting_schedule tool
  *
  * Inputs:

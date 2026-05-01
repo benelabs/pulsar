@@ -35,6 +35,7 @@
   - [simulate_transaction](#simulate_transaction)
   - [decode_ledger_entry](#decode_ledger_entry)
   - [submit_transaction](#submit_transaction)
+  - [soroban_math](#soroban_math)
   - [compute_vesting_schedule](#compute_vesting_schedule)
   - [deploy_contract](#deploy_contract)
 - [Example Prompts & Workflows](#example-prompts--workflows)
@@ -90,6 +91,7 @@ There is currently **no community-driven MCP server** for Stellar, which means:
 | **Transaction Simulation** | Dry-run a Soroban transaction and inspect resource usage and return values before spending fees |
 | **Ledger Entry Decoding** | Decode raw XDR ledger entries into human-readable JSON |
 | **Transaction Submission** | Sign (via a provided secret key or external signer) and submit transactions to the network |
+| **Soroban Math** | Fixed-point arithmetic, statistical functions (mean, std dev, TWAP), and financial math (compound interest, basis points) compatible with Soroban's 7-decimal integer model |
 | **Contract Deployment** | Deploy Soroban smart contracts via built-in deployer or factory contracts |
 | **Vesting Schedule Computation** | Calculate token vesting / timelock release schedules for team, investors, and advisors |
 | **Multi-network** | Targets Mainnet, Testnet, Futurenet, or a custom RPC endpoint |
@@ -556,6 +558,9 @@ Decode a raw base64-encoded XDR ledger entry into a human-readable JSON structur
 |---|---|---|---|
 | `xdr` | `string` | Yes | The base64-encoded XDR of the ledger entry (key or value) |
 | `entry_type` | `string` | No | Hint for decoding: `account`, `trustline`, `contract_data`, `contract_code`, `offer`, `data` |
+| `compression.enabled` | `boolean` | No | Enable decompression pass for embedded base64 blobs in decoded ledger fields |
+| `compression.algorithm` | `string` | No | Compression algorithm: `auto` (default), `gzip`, `deflate`, `brotli` |
+| `compression.fields` | `string[]` | No | Dot-paths to fields to inspect (for example `val.data`); if omitted, common blob fields are auto-discovered |
 
 **Output:**
 
@@ -580,7 +585,21 @@ Decode a raw base64-encoded XDR ledger entry into a human-readable JSON structur
     "durability": "persistent",
     "last_modified_ledger": 48123456
   },
-  "raw_xdr": "AAAABgAAAAEA..."
+  "raw_xdr": "AAAABgAAAAEA...",
+  "compression": {
+    "enabled": true,
+    "requested_algorithm": "auto",
+    "inspected_fields": ["val.data"],
+    "decompressed_fields": [
+      {
+        "path": "val.data",
+        "algorithm": "gzip",
+        "utf8": "{\"version\":1,\"blob\":\"...\"}",
+        "byte_length": 26
+      }
+    ],
+    "skipped_fields": []
+  }
 }
 ```
 
@@ -644,6 +663,49 @@ Sign (optionally) and submit a transaction to the Stellar network. If `STELLAR_S
 
 ---
 
+### `soroban_math`
+
+Perform fixed-point arithmetic, statistical, and financial math operations using Soroban-compatible 7-decimal integer representations. All numeric values are passed as strings to preserve precision with large integers.
+
+**Operations:**
+
+| `operation` | Description | Key Parameters |
+|---|---|---|
+| `fixed_add` | Add two fixed-point numbers | `a`, `b`, `decimals` |
+| `fixed_sub` | Subtract two fixed-point numbers | `a`, `b`, `decimals` |
+| `fixed_mul` | Multiply two fixed-point numbers | `a`, `b`, `decimals` |
+| `fixed_div` | Divide two fixed-point numbers | `a`, `b`, `decimals` |
+| `mean` | Arithmetic mean of a list of values | `values[]`, `decimals` |
+| `weighted_mean` | Weighted mean of values with corresponding weights | `values[]`, `weights[]`, `decimals` |
+| `std_dev` | Population standard deviation | `values[]` (≥ 2), `decimals` |
+| `twap` | Time-weighted average price | `prices[]{price, timestamp}` (≥ 2), `decimals` |
+| `compound_interest` | Compound interest final amount | `principal`, `rate_bps`, `periods`, `compounds_per_period`, `decimals` |
+| `basis_points_to_percent` | Convert basis points to a percentage | `value` |
+| `percent_to_basis_points` | Convert a percentage to basis points | `value` |
+
+**Common Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `operation` | `string` | Yes | One of the operation names above |
+| `decimals` | `integer` | No | Fixed-point decimal places (0–18, default `7` — Stellar's standard) |
+
+**Output:**
+
+```jsonc
+{
+  "operation": "fixed_mul",
+  "result": "10000000",     // raw integer string
+  "human_readable": "1.0000000",
+  "decimals": 7
+}
+```
+
+For `basis_points_to_percent` / `percent_to_basis_points` the output contains only `operation` and `result` (a number, not a fixed-point integer).
+
+**Example prompt:**
+
+> _"What is the compound interest on a principal of 1,000 USDC at 5% annual rate (500 bps) over 12 monthly periods?"_
 ### `compute_vesting_schedule`
 
 Calculate a token vesting / timelock release schedule for team members, investors, or advisors. Given a total allocation, start time, cliff, vesting duration, and release frequency, the tool returns the amount already released, the amount still locked, and a period-by-period schedule.
@@ -834,11 +896,29 @@ pulsar/
 ├── tests/
 │   ├── unit/
 │   └── integration/
+├── contracts/                  # Soroban Rust workspaces
+│   └── reference/            # Reference contracts and test suite
 ├── .env.example
 ├── package.json
 ├── tsconfig.json
 └── README.md
 ```
+
+### Reference Contracts
+
+To ensure pulsar's toolsets (`simulate_transaction`, `fetch_contract_spec`, `decode_ledger_entry`) are rigorously verified, we maintain a `contracts/` directory containing "Reference Contracts". These are standard Soroban Rust contracts that implement various features (events, structs, cross-contract calls, conditional panics).
+
+You can compile these contracts to WASM and run their comprehensive Rust unit tests via:
+
+```bash
+# Build the reference contracts (generates AI-ready WASM specs)
+npm run build:contracts
+
+# Run the comprehensive unit test suite
+npm run test:contracts
+```
+
+These reference WASM files provide an exact baseline to verify the outputs of pulsar tools.
 
 ### Adding a New Tool
 
@@ -932,6 +1012,7 @@ npm run typecheck
 - [x] `simulate_transaction` — dry-run via Soroban RPC
 - [x] `decode_ledger_entry` — XDR decode
 - [x] `submit_transaction` — broadcast + wait for result
+- [x] `soroban_math` — fixed-point, statistical, and financial math
 - [x] `compute_vesting_schedule` — token vesting / timelock schedule calculator
 - [x] `deploy_contract` — deploy Soroban contracts via built-in deployer or factory pattern
 - [ ] `get_transaction_history` — paginated history for an account

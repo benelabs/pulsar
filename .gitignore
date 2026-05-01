@@ -29,3 +29,6 @@ coverage/
 *.njsproj
 *.sln
 *.sw?
+contracts/target/
+CLAUDE.md
+plan.md
