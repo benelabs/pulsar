@@ -63,12 +63,13 @@ vi.mock("../../src/services/soroban-rpc.js", () => ({
 }));
 
 import { runStellarCli } from "../../src/services/stellar-cli.js";
-import { fetchContractSpec } from "../../src/tools/fetch_contract_spec.js";
+import { fetchContractSpec, contractSpecCache } from "../../src/tools/fetch_contract_spec.js";
 
 const USDC_TESTNET = "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA";
 
 describe("fetchContractSpec", () => {
   beforeEach(() => {
+    contractSpecCache.clear();
     vi.mocked(runStellarCli).mockResolvedValue({
       stdout: JSON.stringify(SAC_FIXTURE),
       stderr: "",
@@ -162,5 +163,17 @@ describe("fetchContractSpec", () => {
     await expect(fetchContractSpec({ contract_id: USDC_TESTNET })).rejects.toThrow(
       "stellar CLI error: contract not found"
     );
+  });
+
+  it("returns cached spec on second call without spawning CLI again", async () => {
+    await fetchContractSpec({ contract_id: USDC_TESTNET });
+    await fetchContractSpec({ contract_id: USDC_TESTNET });
+
+    expect(vi.mocked(runStellarCli)).toHaveBeenCalledTimes(1);
+  });
+
+  it("normalizes contract_id before lookup (trims and uppercases)", async () => {
+    const result = await fetchContractSpec({ contract_id: `  ${USDC_TESTNET.toLowerCase()}  ` });
+    expect(result.contract_id).toBe(USDC_TESTNET);
   });
 });
