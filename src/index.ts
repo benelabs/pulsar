@@ -22,6 +22,7 @@ import { sorobanMath } from './tools/soroban_math.js';
 import { decodeLedgerEntryTool, decodeLedgerEntrySchema } from './tools/decode_ledger_entry.js';
 import { computeVestingSchedule } from './tools/compute_vesting_schedule.js';
 import { deployContract } from './tools/deploy_contract.js';
+import { ammTool } from './tools/amm.js';
 import { getTokenTransferFee } from './tools/get_token_transfer_fee.js';
 import { generateContractClient } from './tools/generate_contract_client.js';
 import { buildConditionalTransaction } from './tools/build_conditional_transaction.js';
@@ -42,6 +43,13 @@ import {
   BuildConditionalTransactionInputSchema,
   BatchEventsInputSchema,
 } from './schemas/tools.js';
+import {
+  AMMSwapInputSchema,
+  AMMAddLiquidityInputSchema,
+  AMMRemoveLiquidityInputSchema,
+  AMMGetQuoteInputSchema,
+  AMMGetPoolInfoInputSchema,
+} from './schemas/amm.js';
 
 import logger from './logger.js';
 import { PulsarError, PulsarNetworkError, PulsarValidationError, PulsarRestrictedAddressError } from './errors.js';
@@ -586,6 +594,28 @@ class PulsarServer {
             required: ['contract_id', 'amount', 'from', 'to'],
           },
         },
+        {
+          name: 'amm',
+          description:
+            'Automated Market Maker (AMM) operations for constant-product (x*y=k) pools. '
+            + 'Supports token swaps, liquidity provision/removal, and pool queries. '
+            + 'Actions: swap, add_liquidity, remove_liquidity, get_quote, get_pool_info.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              action: {
+                type: 'string',
+                enum: ['swap', 'add_liquidity', 'remove_liquidity', 'get_quote', 'get_pool_info'],
+                description: 'AMM operation to perform',
+              },
+              params: {
+                type: 'object',
+                description: 'Parameters for the AMM action (varies by action type)',
+              },
+            },
+            required: ['action', 'params'],
+          },
+        },
       ],
     }));
 
@@ -800,6 +830,71 @@ class PulsarServer {
             return {
               content: [{ type: 'text', text: JSON.stringify(result) }],
             };
+          }
+
+          case 'amm': {
+            const action = args?.action;
+            const params = args?.params;
+
+            if (!action || !params) {
+              throw new PulsarValidationError('AMM tool requires action and params');
+            }
+
+            // Validate params based on action
+            switch (action) {
+              case 'swap': {
+                const parsed = AMMSwapInputSchema.safeParse(params);
+                if (!parsed.success) {
+                  throw new PulsarValidationError(`Invalid input for amm swap`, parsed.error.format());
+                }
+                const result = await ammTool({ action, params: parsed.data });
+                return {
+                  content: [{ type: 'text', text: JSON.stringify(result) }],
+                };
+              }
+              case 'add_liquidity': {
+                const parsed = AMMAddLiquidityInputSchema.safeParse(params);
+                if (!parsed.success) {
+                  throw new PulsarValidationError(`Invalid input for amm add_liquidity`, parsed.error.format());
+                }
+                const result = await ammTool({ action, params: parsed.data });
+                return {
+                  content: [{ type: 'text', text: JSON.stringify(result) }],
+                };
+              }
+              case 'remove_liquidity': {
+                const parsed = AMMRemoveLiquidityInputSchema.safeParse(params);
+                if (!parsed.success) {
+                  throw new PulsarValidationError(`Invalid input for amm remove_liquidity`, parsed.error.format());
+                }
+                const result = await ammTool({ action, params: parsed.data });
+                return {
+                  content: [{ type: 'text', text: JSON.stringify(result) }],
+                };
+              }
+              case 'get_quote': {
+                const parsed = AMMGetQuoteInputSchema.safeParse(params);
+                if (!parsed.success) {
+                  throw new PulsarValidationError(`Invalid input for amm get_quote`, parsed.error.format());
+                }
+                const result = await ammTool({ action, params: parsed.data });
+                return {
+                  content: [{ type: 'text', text: JSON.stringify(result) }],
+                };
+              }
+              case 'get_pool_info': {
+                const parsed = AMMGetPoolInfoInputSchema.safeParse(params);
+                if (!parsed.success) {
+                  throw new PulsarValidationError(`Invalid input for amm get_pool_info`, parsed.error.format());
+                }
+                const result = await ammTool({ action, params: parsed.data });
+                return {
+                  content: [{ type: 'text', text: JSON.stringify(result) }],
+                };
+              }
+              default:
+                throw new PulsarValidationError(`Invalid AMM action: ${action}`);
+            }
           }
 
           default:
