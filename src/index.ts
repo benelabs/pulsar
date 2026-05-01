@@ -22,6 +22,7 @@ import { sorobanMath } from './tools/soroban_math.js';
 import { decodeLedgerEntryTool, decodeLedgerEntrySchema } from './tools/decode_ledger_entry.js';
 import { computeVestingSchedule } from './tools/compute_vesting_schedule.js';
 import { deployContract } from './tools/deploy_contract.js';
+import { batchEvents } from './tools/batch_events.js';
 
 import {
   GetAccountBalanceInputSchema,
@@ -32,6 +33,7 @@ import {
   SorobanMathInputSchema,
   ComputeVestingScheduleInputSchema,
   DeployContractInputSchema,
+  BatchEventsInputSchema,
 } from './schemas/tools.js';
 
 import logger from './logger.js';
@@ -138,6 +140,9 @@ class PulsarServer {
           },
         },
         {
+          name: 'fetch_contract_spec',
+          description:
+            'Fetch the ABI/interface spec of a deployed Soroban contract. Returns decoded function signatures, parameter types, and emitted event schemas.',
           name: 'emergency_pause',
           description:
             'Circuit breaker: inspect a Soroban contract for pause/unpause capability and generate the recommended invocation. ' +
@@ -153,6 +158,7 @@ class PulsarServer {
               network: {
                 type: 'string',
                 enum: ['mainnet', 'testnet', 'futurenet', 'custom'],
+                description: 'Override the active network for this call.',
                 description: 'Override the configured network for this call.',
               },
               action: {
@@ -170,6 +176,9 @@ class PulsarServer {
           },
         },
         {
+          name: 'simulate_transaction',
+          description:
+            'Simulates a transaction on the Soroban RPC and returns results, footprint, fees, and events.',
           name: 'generate_contract_docs',
           description:
             'Generate human-readable documentation for a Soroban contract. ' +
@@ -200,6 +209,8 @@ class PulsarServer {
             },
             required: ['contract_id'],
           name: 'compute_vesting_schedule',
+          description:
+            'Calculate a token vesting / timelock release schedule for team, investors, or advisors. Returns released and unreleased amounts plus a period-by-period breakdown.',
           description: 'Calculate a token vesting / timelock release schedule for team, investors, or advisors. Returns released and unreleased amounts plus a period-by-period breakdown.',
           name: 'soroban_math',
           description:
@@ -297,11 +308,70 @@ class PulsarServer {
           },
         },
         {
+          name: 'batch_events',
+          description:
+            'Batch, deduplicate, and group Soroban contract events from simulate or submit results. ' +
+            'Reduces noise in multi-transaction workflows while preserving a full audit trail. ' +
+            'Accepts an array of base64 XDR ContractEvent or DiagnosticEvent strings.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              events: {
+                type: 'array',
+                items: { type: 'string' },
+                description:
+                  'Array of base64 XDR Soroban ContractEvent or DiagnosticEvent strings.',
+              },
+              group_by: {
+                type: 'string',
+                enum: ['contract', 'topic', 'contract_and_topic'],
+                default: 'contract_and_topic',
+                description:
+                  "Grouping strategy: 'contract', 'topic', or 'contract_and_topic' (default).",
+              },
+              deduplicate: {
+                type: 'boolean',
+                default: true,
+                description:
+                  'Collapse identical events into a single entry with an occurrence_count.',
+              },
+            },
+            required: ['events'],
+          },
+        },
+        {
           name: 'deploy_contract',
           description: 'Build deploy transaction.',
           inputSchema: {
             type: 'object',
             properties: {
+              mode: {
+                type: 'string',
+                enum: ['direct', 'factory'],
+                description:
+                  "Deployment mode: 'direct' (built-in deployer) or 'factory' (via factory contract)",
+              },
+              source_account: {
+                type: 'string',
+                description:
+                  'Stellar public key (G...) that will deploy the contract and pay fees.',
+              },
+              wasm_hash: {
+                type: 'string',
+                description:
+                  'SHA-256 hash of the uploaded WASM as 64 hex characters. Required for direct mode.',
+              },
+              salt: {
+                type: 'string',
+                description:
+                  'Optional 32-byte salt as 64 hex characters for deterministic address. Random if omitted.',
+              },
+              factory_contract_id: {
+                type: 'string',
+                description:
+                  'Soroban contract ID (C...) of the factory contract. Required for factory mode.',
+              },
+              deploy_function: {
               mode: { type: 'string' },
               source_account: { type: 'string' },
             },
@@ -319,6 +389,12 @@ class PulsarServer {
                 enum: ['add', 'remove', 'list', 'check'],
                 description: 'Action to perform on the restricted address list.',
               },
+              deploy_args: {
+                type: 'array',
+                description:
+                  "Arguments for factory deploy function as typed SCVal objects. Each item: { type?: 'symbol'|'string'|'u32'|'i32'|'u64'|'i64'|'u128'|'i128'|'bool'|'address'|'bytes'|'void', value: any }",
+              },
+              network: {
               address: {
                 type: 'string',
                 description: 'Stellar public key (G...) or Soroban contract ID (C...). Required for add, remove, check.',
@@ -438,6 +514,7 @@ class PulsarServer {
             const parsed = SorobanMathInputSchema.safeParse(args);
             if (!parsed.success) {
               throw new PulsarValidationError(
+                `Invalid input for compute_vesting_schedule`,
                 `Invalid input for soroban_math`,
                 parsed.error.format()
               );
@@ -448,6 +525,20 @@ class PulsarServer {
             const parsed = ComputeVestingScheduleInputSchema.parse(args);
             const result = await computeVestingSchedule(parsed);
             return { content: [{ type: 'text', text: JSON.stringify(result) }] };
+          }
+
+          case 'batch_events': {
+            const parsed = BatchEventsInputSchema.safeParse(args);
+            if (!parsed.success) {
+              throw new PulsarValidationError(
+                `Invalid input for batch_events`,
+                parsed.error.format()
+              );
+            }
+            const result = batchEvents(parsed.data);
+            return {
+              content: [{ type: 'text', text: JSON.stringify(result) }],
+            };
           }
 
           case 'generate_contract_docs': {
@@ -465,6 +556,10 @@ class PulsarServer {
           case 'manage_restricted_addresses': {
             const parsed = ManageRestrictedAddressesInputSchema.safeParse(args);
             if (!parsed.success) {
+              throw new PulsarValidationError(
+                `Invalid input for deploy_contract`,
+                parsed.error.format()
+              );
               throw new PulsarValidationError(`Invalid input for manage_restricted_addresses`, parsed.error.format());
             }
             const result = await manageRestrictedAddresses(parsed.data);
