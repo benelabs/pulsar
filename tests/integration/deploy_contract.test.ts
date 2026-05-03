@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 
 import { deployContract } from '../../src/tools/deploy_contract.js';
+
+import { RUN_INTEGRATION_TESTS, TEST_ACCOUNT_PUBLIC_KEY, describeIfIntegration } from './setup.js';
 import {
   RUN_INTEGRATION_TESTS,
   TEST_ACCOUNT_PUBLIC_KEY,
@@ -18,8 +20,7 @@ import {
 describeIfIntegration('deploy_contract (Integration)', () => {
   const SOURCE_ACCOUNT = TEST_ACCOUNT_PUBLIC_KEY;
   const WASM_HASH = 'a'.repeat(64);
-  const FACTORY_CONTRACT_ID =
-    'CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4';
+  const FACTORY_CONTRACT_ID = 'CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4';
 
   it('builds a direct deployment transaction against testnet', async () => {
     const result = (await deployContract({

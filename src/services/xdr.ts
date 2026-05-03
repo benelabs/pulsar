@@ -1,4 +1,5 @@
 import { spawn } from 'child_process';
+import { brotliDecompressSync, gunzipSync, inflateSync } from 'zlib';
 
 import { config } from '../config.js';
 
@@ -12,11 +13,40 @@ export interface LedgerEntryDecodeResult {
   entry_type: string;
   decoded: unknown;
   raw_xdr: string;
+  compression?: CompressionDecodeSummary;
 }
 
 export interface XdrDecodeError {
   error: string;
   code: string;
+  diagnostics?: Record<string, unknown>;
+}
+
+export type CompressionAlgorithm = 'auto' | 'gzip' | 'deflate' | 'brotli';
+
+export interface CompressionDecodeOptions {
+  enabled?: boolean;
+  algorithm?: CompressionAlgorithm;
+  /**
+   * Dot-separated object paths to inspect for base64-compressed blobs.
+   * If omitted, a conservative auto-discovery pass is used.
+   */
+  fields?: string[];
+}
+
+export interface CompressionFieldResult {
+  path: string;
+  algorithm: Exclude<CompressionAlgorithm, 'auto'>;
+  utf8: string;
+  byte_length: number;
+}
+
+export interface CompressionDecodeSummary {
+  enabled: boolean;
+  requested_algorithm: CompressionAlgorithm;
+  inspected_fields: string[];
+  decompressed_fields: CompressionFieldResult[];
+  skipped_fields: string[];
 }
 
 /**
@@ -28,7 +58,8 @@ export interface XdrDecodeError {
  */
 export async function decodeLedgerEntry(
   xdr: string,
-  entryType?: string
+  entryType?: string,
+  compression: CompressionDecodeOptions = {}
 ): Promise<LedgerEntryDecodeResult | XdrDecodeError> {
   try {
     // Validate XDR is base64
@@ -73,12 +104,141 @@ export async function decodeLedgerEntry(
       entry_type: entryType || detectEntryType(decoded),
       decoded,
       raw_xdr: xdr,
+      compression: decodeCompressedFields(decoded, compression),
     };
   } catch (error) {
     return {
       error: error instanceof Error ? error.message : 'Unknown error decoding XDR',
       code: 'UNKNOWN_ERROR',
     };
+  }
+}
+
+function decodeCompressedFields(
+  decoded: unknown,
+  options: CompressionDecodeOptions
+): CompressionDecodeSummary | undefined {
+  if (!options.enabled) {
+    return undefined;
+  }
+
+  const requestedAlgorithm = options.algorithm || 'auto';
+  const inspectedFields =
+    options.fields && options.fields.length > 0 ? options.fields : discoverCandidatePaths(decoded);
+  const decompressedFields: CompressionFieldResult[] = [];
+  const skippedFields: string[] = [];
+
+  for (const path of inspectedFields) {
+    const value = getValueAtPath(decoded, path);
+    if (typeof value !== 'string' || !isValidBase64(value)) {
+      skippedFields.push(path);
+      continue;
+    }
+
+    const result = tryDecompressBase64(value, requestedAlgorithm);
+    if (!result) {
+      skippedFields.push(path);
+      continue;
+    }
+
+    decompressedFields.push({
+      path,
+      algorithm: result.algorithm,
+      utf8: result.utf8,
+      byte_length: result.byteLength,
+    });
+  }
+
+  return {
+    enabled: true,
+    requested_algorithm: requestedAlgorithm,
+    inspected_fields: inspectedFields,
+    decompressed_fields: decompressedFields,
+    skipped_fields: skippedFields,
+  };
+}
+
+function discoverCandidatePaths(decoded: unknown): string[] {
+  if (!decoded || typeof decoded !== 'object') {
+    return [];
+  }
+
+  const candidates = new Set<string>();
+  const stack: Array<{ value: unknown; path: string }> = [{ value: decoded, path: '' }];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    if (!current || typeof current.value !== 'object' || current.value === null) {
+      continue;
+    }
+    for (const [key, value] of Object.entries(current.value)) {
+      const nextPath = current.path ? `${current.path}.${key}` : key;
+      if (
+        typeof value === 'string' &&
+        (key === 'val' || key === 'value' || key === 'data' || key === 'bytes')
+      ) {
+        candidates.add(nextPath);
+      } else if (typeof value === 'object' && value !== null) {
+        stack.push({ value, path: nextPath });
+      }
+    }
+  }
+
+  return [...candidates];
+}
+
+function getValueAtPath(data: unknown, path: string): unknown {
+  if (!path) {
+    return undefined;
+  }
+  const keys = path.split('.');
+  let current: unknown = data;
+  for (const key of keys) {
+    if (typeof current !== 'object' || current === null) {
+      return undefined;
+    }
+    current = (current as Record<string, unknown>)[key];
+  }
+  return current;
+}
+
+function tryDecompressBase64(
+  value: string,
+  algorithm: CompressionAlgorithm
+): { algorithm: Exclude<CompressionAlgorithm, 'auto'>; utf8: string; byteLength: number } | null {
+  const compressed = Buffer.from(value, 'base64');
+
+  const attempts: Array<Exclude<CompressionAlgorithm, 'auto'>> =
+    algorithm === 'auto' ? ['gzip', 'deflate', 'brotli'] : [algorithm];
+
+  for (const attempt of attempts) {
+    try {
+      const uncompressed = decompressBuffer(compressed, attempt);
+      return {
+        algorithm: attempt,
+        utf8: uncompressed.toString('utf8'),
+        byteLength: uncompressed.byteLength,
+      };
+    } catch {
+      // Continue trying algorithms in auto mode.
+    }
+  }
+
+  return null;
+}
+
+function decompressBuffer(
+  compressed: Buffer,
+  algorithm: Exclude<CompressionAlgorithm, 'auto'>
+): Buffer {
+  switch (algorithm) {
+    case 'gzip':
+      return gunzipSync(compressed);
+    case 'deflate':
+      return inflateSync(compressed);
+    case 'brotli':
+      return brotliDecompressSync(compressed);
+    default:
+      return compressed;
   }
 }
 
