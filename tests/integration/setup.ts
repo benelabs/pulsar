@@ -18,8 +18,7 @@ export const TEST_ACCOUNT_PUBLIC_KEY =
 
 // Testnet USDC SAC (Stellar Asset Contract) contract ID
 export const TESTNET_USDC_CONTRACT_ID =
-  process.env.TESTNET_USDC_CONTRACT_ID ||
-  'CBIELTKRNMPAW7R5AWR5WWPQMGEBSYV6QJ5I6QVWVJ7V3P2YGKG5OXF';
+  process.env.TESTNET_USDC_CONTRACT_ID || 'CBIELTKRNMPAW7R5AWR5WWPQMGEBSYV6QJ5I6QVWVJ7V3P2YGKG5OXF';
 
 // Soroban RPC URL for Testnet
 export const TESTNET_SOROBAN_RPC_URL =
@@ -69,10 +68,7 @@ export async function createFundedTestnetAccount(): Promise<Keypair> {
  * @param name - Test name
  * @param fn - Test function
  */
-export function itIfIntegration(
-  name: string,
-  fn: () => Promise<void>
-): void {
+export function itIfIntegration(name: string, fn: () => Promise<void>): void {
   if (RUN_INTEGRATION_TESTS) {
     it(name, fn);
   } else {
@@ -84,10 +80,7 @@ export function itIfIntegration(
  * Describes a suite of integration tests that are skipped unless
  * RUN_INTEGRATION_TESTS is set.
  */
-export function describeIfIntegration(
-  name: string,
-  fn: () => void
-): void {
+export function describeIfIntegration(name: string, fn: () => void): void {
   if (RUN_INTEGRATION_TESTS) {
     describe(name, fn);
   } else {

@@ -24,6 +24,7 @@
 - [Configuration](#configuration)
   - [Environment Variables](#environment-variables)
   - [Network Selection](#network-selection)
+  - [Monitoring with Prometheus Metrics](#monitoring-with-prometheus-metrics)
 - [Connecting to AI Assistants](#connecting-to-ai-assistants)
   - [Claude Desktop](#claude-desktop)
   - [Cursor](#cursor)
@@ -31,12 +32,30 @@
   - [Any MCP-Compatible Client](#any-mcp-compatible-client)
 - [Tools Reference](#tools-reference)
   - [get_account_balance](#get_account_balance)
+  - [get_account_balances](#get_account_balances)
+  - [search_assets](#search_assets)
   - [fetch_contract_spec](#fetch_contract_spec)
   - [simulate_transaction](#simulate_transaction)
+  - [get_contract_storage](#get_contract_storage)
   - [decode_ledger_entry](#decode_ledger_entry)
   - [submit_transaction](#submit_transaction)
+  - [build_transaction](#build_transaction)
+  - [soroban_math](#soroban_math)
   - [compute_vesting_schedule](#compute_vesting_schedule)
   - [deploy_contract](#deploy_contract)
+  - [sign_with_ledger](#sign_with_ledger)
+  - [inspect_xdr](#inspect_xdr)
+  - [export_ai_schemas](#export_ai_schemas)
+  - [get_price_feed](#get_price_feed)
+  - [calculate_dutch_auction_price](#calculate_dutch_auction_price)
+  - [calculate_english_auction_state](#calculate_english_auction_state)
+  - [safe_math_compute](#safe_math_compute)
+  - [track_ledger_consensus_time](#track_ledger_consensus_time)
+  - [get_network_params](#get_network_params)
+  - [optimize_contract_bytecode](#optimize_contract_bytecode)
+  - [get_protocol_version](#get_protocol_version)
+  - [amm](#amm)
+  - [get_token_transfer_fee](#get_token_transfer_fee)
 - [Example Prompts & Workflows](#example-prompts--workflows)
 - [Soroban CLI Integration](#soroban-cli-integration)
 - [Development Guide](#development-guide)
@@ -44,6 +63,7 @@
   - [Adding a New Tool](#adding-a-new-tool)
   - [Running Locally](#running-locally)
   - [Testing](#testing)
+- [Monitoring](#monitoring)
 - [Security Considerations](#security-considerations)
 - [Roadmap](#roadmap)
 - [Contributing](#contributing)
@@ -83,16 +103,60 @@ There is currently **no community-driven MCP server** for Stellar, which means:
 
 ## Features
 
+| Capability                       | Details                                                                                               |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| **Account Balances**             | Query XLM and issued asset balances for one account or batch-fetch up to 25 accounts in a single call |
+| **Contract Spec Fetching**       | Retrieve the full ABI/interface spec of any deployed Soroban contract                                 |
+| **Transaction Simulation**       | Dry-run a Soroban transaction and inspect resource usage and return values before spending fees       |
+| **Ledger Entry Decoding**        | Decode raw XDR ledger entries into human-readable JSON                                                |
+| **Transaction Submission**       | Sign (via a provided secret key or external signer) and submit transactions to the network            |
+| **Contract Deployment**          | Deploy Soroban smart contracts via built-in deployer or factory contracts                             |
+| **Vesting Schedule Computation** | Calculate token vesting / timelock release schedules for team, investors, and advisors                |
+| **Multi-network**                | Targets Mainnet, Testnet, Futurenet, or a custom RPC endpoint                                         |
+| **Soroban CLI Backend**          | Delegates complex operations to the official `stellar` / `soroban` CLI for maximum correctness        |
+| **Structured Output**            | All tool responses are typed JSON objects the AI can directly parse and act upon                      |
+| **Zero-dependency transport**    | Uses standard MCP stdio transport — no extra HTTP server required                                     |
+| Capability                       | Details                                                                                         |
+| -------------------------------- | ----------------------------------------------------------------------------------------------- |
+| **Account Balances**             | Query XLM and any issued asset balance for any account on Mainnet or Testnet                    |
+| **Contract Spec Fetching**       | Retrieve the full ABI/interface spec of any deployed Soroban contract                           |
+| **Transaction Simulation**       | Dry-run a Soroban transaction and inspect resource usage and return values before spending fees |
+| **Ledger Entry Decoding**        | Decode raw XDR ledger entries into human-readable JSON                                          |
+| **Transaction Submission**       | Sign (via a provided secret key or external signer) and submit transactions to the network      |
+| **Contract Deployment**          | Deploy Soroban smart contracts via built-in deployer or factory contracts                       |
+| **Vesting Schedule Computation** | Calculate token vesting / timelock release schedules for team, investors, and advisors          |
+| **Network Parameters**           | Fetch Soroban network resource weights, fee thresholds, and inflation parameters                |
+| **Multi-network**                | Targets Mainnet, Testnet, Futurenet, or a custom RPC endpoint                                   |
+| **Soroban CLI Backend**          | Delegates complex operations to the official `stellar` / `soroban` CLI for maximum correctness  |
+| **Structured Output**            | All tool responses are typed JSON objects the AI can directly parse and act upon                |
+| **Zero-dependency transport**    | Uses standard MCP stdio transport — no extra HTTP server required                               |
 | Capability | Details |
 |---|---|
 | **Account Balances** | Query XLM and any issued asset balance for any account on Mainnet or Testnet |
+| **Liquidity Pool Queries** | Fetch AMM pool reserves, shares, and fee settings from Horizon |
+| **Network Fee Statistics** | Retrieve recent fee percentiles and recommended transaction fees |
+| **Asset Discovery** | Search for Stellar assets by code, issuer, or reputation scores via Stellar Expert / Horizon |
 | **Contract Spec Fetching** | Retrieve the full ABI/interface spec of any deployed Soroban contract |
 | **Transaction Simulation** | Dry-run a Soroban transaction and inspect resource usage and return values before spending fees |
 | **Ledger Entry Decoding** | Decode raw XDR ledger entries into human-readable JSON |
 | **Transaction Submission** | Sign (via a provided secret key or external signer) and submit transactions to the network |
+| **Transaction Build Helper** | Construct common Stellar transactions (payment, trustline, manage data, etc.) without raw XDR knowledge |
+| **Soroban Math** | Fixed-point arithmetic, statistical functions (mean, std dev, TWAP), and financial math (compound interest, basis points) compatible with Soroban's 7-decimal integer model |
 | **Contract Deployment** | Deploy Soroban smart contracts via built-in deployer or factory contracts |
+| **Hardware Wallet Signing** | Securely sign transactions using a physical Ledger device |
+| **XDR Inspection** | Pre-validate XDR blobs for security risks and red flags before simulation |
+| **Bridge Event Observation** | Observe Soroban contract events emitted by cross-chain bridge contracts and filter them by contract, type, or topics |
+| **Price Feed Queries** | Query decentralized oracle contracts for real-time asset prices |
+| **Protocol Version Info** | Track network upgrades and feature availability across different networks |
 | **Vesting Schedule Computation** | Calculate token vesting / timelock release schedules for team, investors, and advisors |
+| **Schema Export for AI** | Export all tool definitions in JSON, Markdown, or OpenAPI formats for AI training and documentation |
+| **Auction Pricing** | Calculate current prices and bid requirements for Dutch and English auctions |
+| **Safe Math Utilities** | Perform overflow/underflow protected arithmetic for BigInt and Soroban types |
+| **Ledger Consensus Tracking** | Sample recent ledgers and report average, min, max, and std-dev of inter-ledger close times |
+| **Automated Market Maker (AMM)** | Interact with constant-product (x*y=k) AMM pools: swap tokens, add/remove liquidity, get quotes |
+| **Fee-on-Transfer Detection** | Simulate transfers to detect hidden fees or explicit Fee-on-Transfer logic |
 | **Multi-network** | Targets Mainnet, Testnet, Futurenet, or a custom RPC endpoint |
+| **Latency-Based RPC Routing** | Automatically route Soroban RPC calls to the fastest healthy endpoint when multiple are configured |
 | **Soroban CLI Backend** | Delegates complex operations to the official `stellar` / `soroban` CLI for maximum correctness |
 | **Structured Output** | All tool responses are typed JSON objects the AI can directly parse and act upon |
 | **Zero-dependency transport** | Uses standard MCP stdio transport — no extra HTTP server required |
@@ -135,6 +199,7 @@ There is currently **no community-driven MCP server** for Stellar, which means:
 - **Soroban CLI as a backend** — Rather than re-implementing XDR serialisation from scratch, the server shells out to the official `stellar` CLI for operations that require it, ensuring byte-level correctness.
 - **Horizon + Soroban RPC** — Account data is fetched from Horizon (the REST layer), while contract interaction goes through the Soroban JSON-RPC endpoint.
 - **Zod schemas** — Every tool input and output is validated with [Zod](https://zod.dev) at runtime, preventing malformed data from reaching the network.
+- **Central output contracts** — Tool outputs are validated in a shared dispatcher path (`TOOL_OUTPUT_SCHEMAS`) before being returned to MCP clients, ensuring contract consistency across all tools.
 
 ---
 
@@ -144,27 +209,30 @@ Before you start, ensure the following are installed on your machine:
 
 ### Required
 
-| Dependency | Version | Install |
-|---|---|---|
-| **Node.js** | ≥ 18 | [nodejs.org](https://nodejs.org) |
-| **npm** | ≥ 9 | Bundled with Node.js |
-| **Stellar CLI** (`stellar`) | ≥ 21 | See below |
+| Dependency                  | Version | Install                          |
+| --------------------------- | ------- | -------------------------------- |
+| **Node.js**                 | ≥ 18    | [nodejs.org](https://nodejs.org) |
+| **npm**                     | ≥ 9     | Bundled with Node.js             |
+| **Stellar CLI** (`stellar`) | ≥ 21    | See below                        |
 
 ### Installing the Stellar CLI
 
 The Stellar CLI (which includes `soroban` commands) is the official tool maintained by SDF.
 
 **macOS / Linux (via Homebrew):**
+
 ```bash
 brew install stellar-cli
 ```
 
 **macOS / Linux (via cargo):**
+
 ```bash
 cargo install --locked stellar-cli --features opt
 ```
 
 **Verify installation:**
+
 ```bash
 stellar --version
 # stellar 21.x.x
@@ -174,9 +242,9 @@ stellar --version
 
 ### Optional
 
-| Dependency | Purpose |
-|---|---|
-| **jq** | Pretty-printing JSON in shell examples |
+| Dependency       | Purpose                                             |
+| ---------------- | --------------------------------------------------- |
+| **jq**           | Pretty-printing JSON in shell examples              |
 | **Rust + cargo** | Only needed if building the Stellar CLI from source |
 
 ---
@@ -201,6 +269,7 @@ npm link
 ```
 
 After linking, the `pulsar` binary is available system-wide:
+
 ```bash
 pulsar --version
 ```
@@ -255,6 +324,7 @@ docker-compose up
 ```
 
 The `docker-compose.yml` includes:
+
 - Environment variable passthrough from `.env`
 - Resource limits (512MB memory, 1 CPU max)
 - Non-root user execution
@@ -279,6 +349,11 @@ HORIZON_URL=https://horizon-testnet.stellar.org
 # Override the Soroban RPC endpoint (optional)
 SOROBAN_RPC_URL=https://soroban-testnet.stellar.org
 
+# Comma-separated list of Soroban RPC endpoints for latency-based routing.
+# If provided, pulsar will automatically route requests to the fastest healthy endpoint.
+# Example: SOROBAN_RPC_URLS=https://rpc1.example.com,https://rpc2.example.com
+SOROBAN_RPC_URLS=
+
 # ─── Signing (optional — required only for submit_transaction) ───────────────
 # WARNING: Never commit a funded secret key to version control.
 # Use a dedicated low-value keypair for development.
@@ -289,20 +364,108 @@ STELLAR_SECRET_KEY=SXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 STELLAR_CLI_PATH=stellar
 
 # ─── Server ─────────────────────────────────────────────────────────────────
-# Log level: error | warn | info | debug
+# Log level: error | warn | info | debug | trace
 LOG_LEVEL=info
+
+# Tool execution audit log path (defaults to audit.log)
+AUDIT_LOG_PATH=audit.log
+# ─── Metrics (optional) ──────────────────────────────────────────────────────
+# Enable Prometheus metrics export (default: true)
+METRICS_ENABLED=true
+
+# Port for metrics HTTP endpoint (default: 9090)
+METRICS_PORT=9090
+# ─── RPC Routing ─────────────────────────────────────────────────────────────
+# Health check interval in milliseconds (default: 30000)
+# RPC_HEALTH_CHECK_INTERVAL_MS=30000
+
+# Maximum acceptable latency for an RPC endpoint in milliseconds before marking it unhealthy (default: 2000)
+# RPC_LATENCY_THRESHOLD_MS=2000
 ```
+
+Logs are emitted as structured JSON to stderr to keep MCP stdout clean.
 
 > **Security note:** `STELLAR_SECRET_KEY` is optional and only used by `submit_transaction`. If not set, that tool will return an unsigned XDR blob that you can sign externally. Never use a funded Mainnet key during development — use a throwaway Testnet keypair funded via [Friendbot](https://friendbot.stellar.org).
 
 ### Network Selection
 
-| `STELLAR_NETWORK` value | Horizon URL | Soroban RPC URL |
-|---|---|---|
-| `mainnet` | `https://horizon.stellar.org` | `https://soroban-rpc.stellar.org` |
-| `testnet` | `https://horizon-testnet.stellar.org` | `https://soroban-testnet.stellar.org` |
-| `futurenet` | `https://horizon-futurenet.stellar.org` | `https://rpc-futurenet.stellar.org` |
-| `custom` | `HORIZON_URL` env var | `SOROBAN_RPC_URL` env var |
+| `STELLAR_NETWORK` value | Horizon URL                             | Soroban RPC URL                       |
+| ----------------------- | --------------------------------------- | ------------------------------------- |
+| `mainnet`               | `https://horizon.stellar.org`           | `https://soroban-rpc.stellar.org`     |
+| `testnet`               | `https://horizon-testnet.stellar.org`   | `https://soroban-testnet.stellar.org` |
+| `futurenet`             | `https://horizon-futurenet.stellar.org` | `https://rpc-futurenet.stellar.org`   |
+| `custom`                | `HORIZON_URL` env var                   | `SOROBAN_RPC_URL` env var             |
+
+### Monitoring with Prometheus Metrics
+
+pulsar exposes Prometheus metrics on a dedicated HTTP endpoint for real-time monitoring and alerting.
+
+#### Metrics Endpoint
+
+When `METRICS_ENABLED=true` (default), metrics are available at:
+
+```
+http://localhost:9090/metrics
+```
+
+The endpoint returns metrics in standard Prometheus text format.
+
+#### Available Metrics
+
+**Tool Execution Metrics:**
+- `pulsar_tool_invocations_total` (counter) — Total tool invocations by tool name and status (success/error)
+- `pulsar_tool_duration_seconds` (histogram) — Tool execution duration in seconds (per tool)
+- `pulsar_tool_errors_total` (counter) — Total tool errors by tool name and error type
+- `pulsar_validation_errors_total` (counter) — Input validation errors per tool
+- `pulsar_active_tool_invocations` (gauge) — Current number of active tool invocations
+
+**System Metrics:**
+- `pulsar_heap_memory_used_bytes` (gauge) — Current heap memory usage in bytes
+- `pulsar_heap_memory_total_bytes` (gauge) — Total heap memory allocated in bytes
+- `pulsar_process_*` (various) — Standard Node.js process metrics (uptime, CPU, file descriptors, etc.)
+
+**Network Metrics:**
+- `pulsar_network_requests_total` (counter) — Total network requests by service (horizon, soroban-rpc) and status
+- `pulsar_network_duration_seconds` (histogram) — Network request duration by service
+
+#### Health Check Endpoint
+
+A simple health check endpoint is available at:
+
+```
+GET http://localhost:9090/health
+```
+
+Returns:
+```json
+{
+  "status": "ok",
+  "uptime": 123.456
+}
+```
+
+#### Scraping with Prometheus
+
+Configure Prometheus to scrape pulsar metrics by adding to your `prometheus.yml`:
+
+```yaml
+scrape_configs:
+  - job_name: 'pulsar'
+    static_configs:
+      - targets: ['localhost:9090']
+    scrape_interval: 15s
+    scrape_timeout: 10s
+```
+
+#### Disabling Metrics
+
+To disable metrics export (e.g., for reduced overhead), set:
+
+```env
+METRICS_ENABLED=false
+```
+
+The HTTP metrics endpoint will not be started, and metrics collection is skipped.
 
 ---
 
@@ -413,11 +576,11 @@ Retrieve the XLM balance and all issued asset balances held by a Stellar account
 
 **Input:**
 
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `account_id` | `string` | Yes | The Stellar public key (`G...`) or a federated address (`name*domain.com`) |
-| `asset_code` | `string` | No | Filter results to a specific asset code, e.g. `USDC` |
-| `asset_issuer` | `string` | No | The issuer public key for the filtered asset |
+| Parameter      | Type     | Required | Description                                                                |
+| -------------- | -------- | -------- | -------------------------------------------------------------------------- |
+| `account_id`   | `string` | Yes      | The Stellar public key (`G...`) or a federated address (`name*domain.com`) |
+| `asset_code`   | `string` | No       | Filter results to a specific asset code, e.g. `USDC`                       |
+| `asset_issuer` | `string` | No       | The issuer public key for the filtered asset                               |
 
 **Output:**
 
@@ -432,7 +595,7 @@ Retrieve the XLM balance and all issued asset balances held by a Stellar account
       "asset_code": "XLM",
       "balance": "9842.1234567",
       "buying_liabilities": "0.0000000",
-      "selling_liabilities": "0.0000000"
+      "selling_liabilities": "0.0000000",
     },
     {
       "asset_type": "credit_alphanum4",
@@ -440,10 +603,10 @@ Retrieve the XLM balance and all issued asset balances held by a Stellar account
       "asset_issuer": "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN",
       "balance": "250.0000000",
       "limit": "922337203685.4775807",
-      "is_authorized": true
-    }
+      "is_authorized": true,
+    },
   ],
-  "network": "testnet"
+  "network": "testnet",
 }
 ```
 
@@ -453,16 +616,179 @@ Retrieve the XLM balance and all issued asset balances held by a Stellar account
 
 ---
 
+### `get_account_balances`
+
+Fetch balances for multiple Stellar accounts in a single tool call. The server fans out concurrent Horizon requests with a bounded concurrency limit and returns per-account successes or failures without dropping the whole batch.
+
+**Input:**
+
+| Parameter         | Type       | Required | Description                                                                     |
+| ----------------- | ---------- | -------- | ------------------------------------------------------------------------------- |
+| `account_ids`     | `string[]` | Yes      | One to 25 unique Stellar public keys (`G...`)                                   |
+| `asset_code`      | `string`   | No       | Filter every account result to a specific asset code, e.g. `USDC`               |
+| `asset_issuer`    | `string`   | No       | The issuer public key for the filtered asset                                    |
+| `max_concurrency` | `number`   | No       | Maximum number of concurrent Horizon requests. Range: `1` to `10`. Default: `5` |
+| `network`         | `string`   | No       | Override the network for this call                                              |
+
+**Output:**
+
+```jsonc
+{
+  "network": "testnet",
+  "requested": 3,
+  "succeeded": 2,
+  "failed": 1,
+  "max_concurrency": 3,
+  "duration_ms": 184,
+  "results": [
+    {
+      "status": "success",
+      "account_id": "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
+      "balances": [
+        {
+          "asset_type": "native",
+          "balance": "9842.1234567",
+        },
+      ],
+    },
+    {
+      "status": "error",
+      "account_id": "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHG",
+      "error_code": "NETWORK_ERROR",
+      "message": "Account not found - it may not be funded yet",
+      "details": {
+        "status": 404,
+        "account_id": "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHG",
+      },
+    },
+  ],
+}
+```
+
+**Example prompt:**
+
+> _"Fetch XLM balances for these treasury accounts in one call and flag any unfunded ones: `GBBD47...`, `GBZX12...`, `GAAA...`."_
+
+---
+
+### `fetch_contract_spec`
+### `get_fee_stats`
+
+Retrieve recent network fee statistics from Horizon to help estimate optimal transaction fees. Returns minimum, maximum, average, and percentile (p10–p99) fee values in stroops, along with a recommended fee based on the median (p50).
+### `search_assets`
+
+Search for Stellar assets by code, issuer, or minimum reputation score. Uses `stellar.expert` if available for reputation scoring and enhanced search; otherwise falls back to Horizon's `/assets` endpoint.
+
+**Input:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `network` | `string` | No | Override the network for this call (`mainnet`, `testnet`, `futurenet`, `custom`) |
+|---|---|---|---|
+| `asset_code` | `string` | No | Filter by asset code (e.g. `USDC`) |
+| `asset_issuer` | `string` | No | Filter by asset issuer public key (`G...`) |
+| `min_reputation_score` | `number` | No | Minimum reputation score/rating (0-10) to filter by. Requires `stellar.expert` resolution. |
+| `network` | `string` | No | Override the configured network for this call |
+
+**Output:**
+
+```jsonc
+{
+  "min_accepted_fee": "100",
+  "max_accepted_fee": "10000",
+  "avg_accepted_fee": "5000",
+  "p_10": "1000",
+  "p_20": "1500",
+  "p_30": "2000",
+  "p_40": "2500",
+  "p_50": "3000",
+  "p_60": "3500",
+  "p_70": "4000",
+  "p_80": "4500",
+  "p_90": "5000",
+  "p_95": "6000",
+  "p_99": "8000",
+  "last_ledger": "48234567",
+  "last_ledger_base_fee": "100",
+  "ledger_capacity_usage": 0.75,
+  "recommended_fee_stroops": "3000",
+  "network": "testnet"
+}
+```
+
+`recommended_fee_stroops` is a sensible fee for typical transactions, using the median (p50) when available, falling back to the average or minimum if necessary.
+
+**Example prompt:**
+
+> _"What are the current recommended transaction fees on testnet?"_
+> _"Show me the fee percentile distribution for mainnet."_
+
+---
+
+### `get_liquidity_pool`
+
+Query AMM liquidity pool data including reserves, total shares, fee (in basis points), and pool type. Data is sourced from the Stellar Horizon API.
+
+**Input:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `liquidity_pool_id` | `string` | Yes | The liquidity pool ID (e.g. `POOL_...`) |
+| `network` | `string` | No | Override the network for this call (`mainnet`, `testnet`, `futurenet`, `custom`) |
+
+**Output:**
+
+```jsonc
+{
+  "liquidity_pool_id": "POOL_ABC123...",
+  "fee_bp": 30,
+  "type": "constant_product",
+  "reserves": [
+    { "asset": "XLM", "amount": "1000.1234567" },
+    { "asset": "USDC:GA...", "amount": "500.0000000" }
+  ],
+  "total_shares": "2000.1234567",
+  "network": "testnet"
+}
+```
+
+- `fee_bp` is the pool fee expressed in basis points (1 bp = 0.01%, so 30 bp = 0.3%).
+- `reserves` list the pooled assets and their amounts.
+- `total_shares` is the total supply of pool shares.
+
+**Example prompt:**
+
+> _"Get the reserves and fee for liquidity pool POOL_XYZ on testnet."_
+> _"What is the total share count for the USDC/XLM pool?"_
+  "assets": [
+    {
+      "asset_code": "USDC",
+      "asset_issuer": "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN",
+      "asset_type": "credit_alphanum4",
+      "reputation_score": 9,
+      "amount": "2670911892241840",
+      "domain": "circle.com"
+    }
+  ]
+}
+```
+
+**Example prompt:**
+
+> _"Find all USDC assets on mainnet with a reputation score of at least 8."_
+
+---
+
 ### `fetch_contract_spec`
 
 Fetch the ABI interface specification of a deployed Soroban smart contract. Returns the full list of functions, their parameter types, and return types — in both raw XDR and decoded JSON form.
 
 **Input:**
 
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `contract_id` | `string` | Yes | The Soroban contract address (`C...`) |
-| `network` | `string` | No | Override the network for this call (`mainnet`, `testnet`, `futurenet`) |
+| Parameter     | Type     | Required | Description                                                            |
+| ------------- | -------- | -------- | ---------------------------------------------------------------------- |
+| `contract_id` | `string` | Yes      | The Soroban contract address (`C...`)                                  |
+| `network`     | `string` | No       | Override the network for this call (`mainnet`, `testnet`, `futurenet`) |
 
 **Output:**
 
@@ -475,26 +801,27 @@ Fetch the ABI interface specification of a deployed Soroban smart contract. Retu
       "name": "transfer",
       "doc": "Transfer tokens from one account to another.",
       "inputs": [
-        { "name": "from",   "type": "Address" },
-        { "name": "to",     "type": "Address" },
+        { "name": "from", "type": "Address" },
+        { "name": "to", "type": "Address" },
+        { "name": "amount", "type": "i128" },
         { "name": "amount", "type": "i128" }
       ],
-      "outputs": [{ "type": "bool" }]
+      "outputs": [{ "type": "bool" }],
     },
     {
       "name": "balance",
       "inputs": [{ "name": "id", "type": "Address" }],
-      "outputs": [{ "type": "i128" }]
-    }
+      "outputs": [{ "type": "i128" }],
+    },
   ],
   "events": [
     {
       "name": "transfer",
       "topics": [{ "type": "Symbol" }, { "type": "Address" }, { "type": "Address" }],
-      "data": { "type": "i128" }
-    }
+      "data": { "type": "i128" },
+    },
   ],
-  "raw_xdr": "AAAAAgAAAA..."
+  "raw_xdr": "AAAAAgAAAA...",
 }
 ```
 
@@ -504,16 +831,63 @@ Fetch the ABI interface specification of a deployed Soroban smart contract. Retu
 
 ---
 
+### `observe_bridge_events`
+
+Query Soroban contract events for cross-chain bridge observation workflows. This tool returns decoded event topics and values, plus pagination fields for resuming event scans.
+
+**Input:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `contract_id` | `string` | Yes | The Soroban contract address (`C...`) to observe events for |
+| `event_type` | `string` | No | Optional event type filter (`contract`, `system`, `diagnostic`) |
+| `topic_filters` | `string[][]` | No | Optional nested topic filters using base64 topic values and wildcard patterns |
+| `start_ledger` | `number` | No | Optional ledger sequence at which to begin scanning events |
+| `cursor` | `string` | No | Optional paging token to resume event retrieval |
+| `limit` | `number` | No | Optional maximum number of events to return |
+| `network` | `string` | No | Override the network for this call |
+
+**Output:**
+
+```jsonc
+{
+  "network": "testnet",
+  "latest_ledger": 123456,
+  "events": [
+    {
+      "id": "event-1",
+      "type": "contract",
+      "ledger": 123456,
+      "ledger_closed_at": "2026-01-01T00:00:00Z",
+      "paging_token": "123456-1",
+      "in_successful_contract_call": true,
+      "tx_hash": "abcdef123456",
+      "contract_id": "CA...",
+      "topic_raw": ["AAAA..."],
+      "topic_native": ["bridge_event"],
+      "value_raw": "AAAA...",
+      "value_native": 42
+    }
+  ]
+}
+```
+
+**Example prompt:**
+
+> _"Observe bridge event emissions from contract `CA...` starting at ledger 1,000,000."_
+
+---
+
 ### `simulate_transaction`
 
 Dry-run a Soroban transaction against the network without broadcasting it. Returns the simulated result, resource footprint (CPU, memory, ledger reads/writes), and the fee estimate. This is equivalent to calling `stellar contract invoke --dry-run` or the `simulateTransaction` Soroban RPC method.
 
 **Input:**
 
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `xdr` | `string` | Yes | The base64-encoded transaction envelope XDR to simulate |
-| `network` | `string` | No | Override the network for this call |
+| Parameter | Type     | Required | Description                                             |
+| --------- | -------- | -------- | ------------------------------------------------------- |
+| `xdr`     | `string` | Yes      | The base64-encoded transaction envelope XDR to simulate |
+| `network` | `string` | No       | Override the network for this call                      |
 
 **Output:**
 
@@ -522,19 +896,19 @@ Dry-run a Soroban transaction against the network without broadcasting it. Retur
   "status": "success",
   "return_value": {
     "type": "i128",
-    "value": "1000000000"
+    "value": "1000000000",
   },
   "cost": {
     "cpu_instructions": 512340,
-    "memory_bytes": 98304
+    "memory_bytes": 98304,
   },
   "footprint": {
     "read_only": ["ledger_key_1_xdr", "ledger_key_2_xdr"],
-    "read_write": ["ledger_key_3_xdr"]
+    "read_write": ["ledger_key_3_xdr"],
   },
   "min_resource_fee": "12345",
   "events": [],
-  "error": null
+  "error": null,
 }
 ```
 
@@ -546,16 +920,74 @@ If the simulation fails (e.g. contract panics, insufficient balance), the `statu
 
 ---
 
+### `simulate_transactions_sequence`
+
+Simulate a sequence of Soroban transactions sequentially against the network. Iterates over an array of XDRs and returns a detailed array of results, errors, footprints, and fee estimates for each transaction.
+### `get_contract_storage`
+
+Fetch a Soroban contract storage entry by durability and key. Returns the raw ledger entry XDR plus TTL metadata when available. Use `decode_ledger_entry` to inspect the decoded fields.
+
+**Input:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `xdrs` | `array of strings` | Yes | An array of base64-encoded transaction envelope XDRs to simulate sequentially |
+| `network` | `string` | No | Override the network for this sequence |
+
+**Output:**
+
+Returns an array of simulation outputs. Each element follows the same structure as `simulate_transaction` above, and includes a `status` field (`"SUCCESS"`, `"ERROR"`, or `"RESTORE_NEEDED"`).
+
+**Example prompt:**
+
+> _"Simulate this sequence of transaction XDRs sequentially and list their costs and any errors."_
+| `contract_id` | `string` | Yes | The Soroban contract address (`C...`) |
+| `storage_type` | `string` | Yes | `instance`, `persistent`, or `temporary` |
+| `key` | `object` | No | Typed SCVal key for persistent/temporary storage, e.g. `{ type: "symbol", value: "Balance" }` |
+| `network` | `string` | No | Override the network for this call |
+
+**Output:**
+
+```jsonc
+{
+  "contract_id": "CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE",
+  "storage_type": "persistent",
+  "key": { "type": "symbol", "value": "Balance" },
+  "network": "testnet",
+  "entries": [
+    {
+      "key_xdr": "AAAAAgAAAA...",
+      "entry_xdr": "AAAABgAAAAEA...",
+      "last_modified_ledger": 48123456,
+      "live_until_ledger": 48199999
+    }
+  ]
+}
+```
+
+**Example prompt:**
+
+> _"Fetch the persistent storage entry for key `Balance` on contract `CA3D...` and decode it."_
+
+---
+
 ### `decode_ledger_entry`
 
 Decode a raw base64-encoded XDR ledger entry into a human-readable JSON structure. Useful for inspecting persistent storage slots of Soroban contracts, or debugging what is actually stored on-chain.
 
 **Input:**
 
+| Parameter    | Type     | Required | Description                                                                                  |
+| ------------ | -------- | -------- | -------------------------------------------------------------------------------------------- |
+| `xdr`        | `string` | Yes      | The base64-encoded XDR of the ledger entry (key or value)                                    |
+| `entry_type` | `string` | No       | Hint for decoding: `account`, `trustline`, `contract_data`, `contract_code`, `offer`, `data` |
 | Parameter | Type | Required | Description |
 |---|---|---|---|
 | `xdr` | `string` | Yes | The base64-encoded XDR of the ledger entry (key or value) |
 | `entry_type` | `string` | No | Hint for decoding: `account`, `trustline`, `contract_data`, `contract_code`, `offer`, `data` |
+| `compression.enabled` | `boolean` | No | Enable decompression pass for embedded base64 blobs in decoded ledger fields |
+| `compression.algorithm` | `string` | No | Compression algorithm: `auto` (default), `gzip`, `deflate`, `brotli` |
+| `compression.fields` | `string[]` | No | Dot-paths to fields to inspect (for example `val.data`); if omitted, common blob fields are auto-discovered |
 
 **Output:**
 
@@ -566,21 +998,38 @@ Decode a raw base64-encoded XDR ledger entry into a human-readable JSON structur
     "contract": "CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE",
     "key": {
       "type": "Symbol",
-      "value": "Balance"
+      "value": "Balance",
     },
     "val": {
       "type": "Map",
       "value": [
         {
           "key": { "type": "Address", "value": "GBBD47IF..." },
-          "val": { "type": "i128",    "value": "5000000000" }
+          "val": { "type": "i128", "value": "5000000000" },
+        },
+      ],
+          "val": { "type": "i128", "value": "5000000000" }
         }
       ]
     },
     "durability": "persistent",
-    "last_modified_ledger": 48123456
+    "last_modified_ledger": 48123456,
   },
-  "raw_xdr": "AAAABgAAAAEA..."
+  "raw_xdr": "AAAABgAAAAEA...",
+  "compression": {
+    "enabled": true,
+    "requested_algorithm": "auto",
+    "inspected_fields": ["val.data"],
+    "decompressed_fields": [
+      {
+        "path": "val.data",
+        "algorithm": "gzip",
+        "utf8": "{\"version\":1,\"blob\":\"...\"}",
+        "byte_length": 26
+      }
+    ],
+    "skipped_fields": []
+  }
 }
 ```
 
@@ -598,12 +1047,12 @@ Sign (optionally) and submit a transaction to the Stellar network. If `STELLAR_S
 
 **Input:**
 
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `xdr` | `string` | Yes | The base64-encoded transaction envelope XDR (signed or unsigned) |
-| `network` | `string` | No | Override the network for this submission |
-| `sign` | `boolean` | No | If `true` and `STELLAR_SECRET_KEY` is set, the server signs the transaction before submitting. Default: `false` |
-| `wait_for_result` | `boolean` | No | If `true`, polls until the transaction is confirmed and returns the final result. Default: `true` |
+| Parameter         | Type      | Required | Description                                                                                                     |
+| ----------------- | --------- | -------- | --------------------------------------------------------------------------------------------------------------- |
+| `xdr`             | `string`  | Yes      | The base64-encoded transaction envelope XDR (signed or unsigned)                                                |
+| `network`         | `string`  | No       | Override the network for this submission                                                                        |
+| `sign`            | `boolean` | No       | If `true` and `STELLAR_SECRET_KEY` is set, the server signs the transaction before submitting. Default: `false` |
+| `wait_for_result` | `boolean` | No       | If `true`, polls until the transaction is confirmed and returns the final result. Default: `true`               |
 
 **Output (success):**
 
@@ -616,9 +1065,9 @@ Sign (optionally) and submit a transaction to the Stellar network. If `STELLAR_S
   "fee_charged": "1234",
   "return_value": {
     "type": "bool",
-    "value": true
+    "value": true,
   },
-  "result_xdr": "AAAAAAAAAGQ..."
+  "result_xdr": "AAAAAAAAAGQ...",
 }
 ```
 
@@ -632,9 +1081,9 @@ Sign (optionally) and submit a transaction to the Stellar network. If `STELLAR_S
   "diagnostic_events": [
     {
       "event": "contract error",
-      "message": "HostError: Error(Contract, #1)"
-    }
-  ]
+      "message": "HostError: Error(Contract, #1)",
+    },
+  ],
 }
 ```
 
@@ -644,21 +1093,164 @@ Sign (optionally) and submit a transaction to the Stellar network. If `STELLAR_S
 
 ---
 
+### `build_transaction`
+
+Construct common Stellar transaction types (payment, trustline, manage data, set options, account merge, create account) without requiring raw XDR knowledge. Returns unsigned transaction XDR ready for simulation and submission.
+
+**Input:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `source_account` | `string` | Yes | The Stellar public key (`G...`) that will sign the transaction and pay fees |
+| `operations` | `array` | Yes | Array of operation objects (minimum 1). Each operation has a `type` and type-specific parameters |
+| `fee` | `number` | No | Base fee in stroops per operation. Default: `100000` |
+| `timeout` | `number` | No | Transaction timeout in seconds. Default: `30` |
+| `network` | `string` | No | Override the network for this transaction |
+
+**Supported Operation Types:**
+
+#### Payment Operation
+```jsonc
+{
+  "type": "payment",
+  "destination": "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
+  "amount": 100.5,
+  "asset_code": "USDC",        // Optional - omit for native XLM
+  "asset_issuer": "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN"  // Required if asset_code provided
+}
+```
+
+#### Change Trust Operation
+```jsonc
+{
+  "type": "change_trust",
+  "asset_code": "USDC",
+  "asset_issuer": "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN",
+  "limit": "1000000"  // Optional - defaults to maximum uint64
+}
+```
+
+#### Manage Data Operation
+```jsonc
+{
+  "type": "manage_data",
+  "name": "user_preference",
+  "value": "dark_mode"  // Optional - omit to clear the entry
+}
+```
+
+#### Set Options Operation
+```jsonc
+{
+  "type": "set_options",
+  "inflation_destination": "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
+  "home_domain": "example.com",
+  "master_weight": 1,
+  "low_threshold": 2,
+  "med_threshold": 3,
+  "high_threshold": 4,
+  "signer_address": "GD5DJOWB5G4H6H6H6H6H6H6H6H6H6H6H6H6H6H6H6H6H6H6H6H6H6H6",
+  "signer_type": "ed25519_public_key",
+  "signer_weight": 1
+}
+```
+
+#### Account Merge Operation
+```jsonc
+{
+  "type": "account_merge",
+  "destination": "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5"
+}
+```
+
+#### Create Account Operation
+```jsonc
+{
+  "type": "create_account",
+  "destination": "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
+  "starting_balance": 2.5
+}
+```
+### `soroban_math`
+
+Perform fixed-point arithmetic, statistical, and financial math operations using Soroban-compatible 7-decimal integer representations. All numeric values are passed as strings to preserve precision with large integers.
+
+**Operations:**
+
+| `operation` | Description | Key Parameters |
+|---|---|---|
+| `fixed_add` | Add two fixed-point numbers | `a`, `b`, `decimals` |
+| `fixed_sub` | Subtract two fixed-point numbers | `a`, `b`, `decimals` |
+| `fixed_mul` | Multiply two fixed-point numbers | `a`, `b`, `decimals` |
+| `fixed_div` | Divide two fixed-point numbers | `a`, `b`, `decimals` |
+| `mean` | Arithmetic mean of a list of values | `values[]`, `decimals` |
+| `weighted_mean` | Weighted mean of values with corresponding weights | `values[]`, `weights[]`, `decimals` |
+| `std_dev` | Population standard deviation | `values[]` (≥ 2), `decimals` |
+| `twap` | Time-weighted average price | `prices[]{price, timestamp}` (≥ 2), `decimals` |
+| `compound_interest` | Compound interest final amount | `principal`, `rate_bps`, `periods`, `compounds_per_period`, `decimals` |
+| `basis_points_to_percent` | Convert basis points to a percentage | `value` |
+| `percent_to_basis_points` | Convert a percentage to basis points | `value` |
+
+**Common Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `operation` | `string` | Yes | One of the operation names above |
+| `decimals` | `integer` | No | Fixed-point decimal places (0–18, default `7` — Stellar's standard) |
+
+**Output:**
+
+```jsonc
+{
+  "transaction_xdr": "AAAAAgAAAABGDW...==",
+  "network": "testnet",
+  "source_account": "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
+  "operations": [
+    {
+      "type": "payment",
+      "description": "Payment of 100.5 XLM to GD5DJOWB5G4H6H6H6H6H6H6H6H6H6H6H6H6H6H6H6H6H6H6H6H6H6H6"
+    }
+  ],
+  "fee": "100000",
+  "timeout": 30
+}
+```
+
+**Example prompts:**
+
+> _"Build a transaction to send 10 XLM from my account to `GBBD47IF...` on testnet"_
+> _"Create a trustline for USDC issued by `GA5ZSEJY...` with a limit of 1000"_
+> _"Build a transaction that creates a new account with 2 XLM starting balance"_
+
+---
+
+  "operation": "fixed_mul",
+  "result": "10000000",     // raw integer string
+  "human_readable": "1.0000000",
+  "decimals": 7
+}
+```
+
+For `basis_points_to_percent` / `percent_to_basis_points` the output contains only `operation` and `result` (a number, not a fixed-point integer).
+
+**Example prompt:**
+
+> _"What is the compound interest on a principal of 1,000 USDC at 5% annual rate (500 bps) over 12 monthly periods?"_
 ### `compute_vesting_schedule`
 
 Calculate a token vesting / timelock release schedule for team members, investors, or advisors. Given a total allocation, start time, cliff, vesting duration, and release frequency, the tool returns the amount already released, the amount still locked, and a period-by-period schedule.
 
 **Input:**
 
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `total_amount` | `number` | Yes | Total token amount to vest |
-| `start_timestamp` | `number` | Yes | Unix timestamp when vesting begins |
-| `cliff_seconds` | `number` | Yes | Seconds before any tokens unlock (cliff period) |
-| `vesting_duration_seconds` | `number` | Yes | Total vesting period in seconds |
-| `release_frequency_seconds` | `number` | Yes | How often tokens unlock after cliff (e.g. `2592000` for monthly) |
-| `beneficiary_type` | `string` | Yes | Category: `team`, `investor`, `advisor`, or `other` |
-| `current_timestamp` | `number` | No | Optional override for "now" (defaults to current time) |
+| Parameter                   | Type     | Required | Description                                                      |
+| --------------------------- | -------- | -------- | ---------------------------------------------------------------- |
+| `total_amount`              | `number` | Yes      | Total token amount to vest                                       |
+| `start_timestamp`           | `number` | Yes      | Unix timestamp when vesting begins                               |
+| `cliff_seconds`             | `number` | Yes      | Seconds before any tokens unlock (cliff period)                  |
+| `vesting_duration_seconds`  | `number` | Yes      | Total vesting period in seconds                                  |
+| `release_frequency_seconds` | `number` | Yes      | How often tokens unlock after cliff (e.g. `2592000` for monthly) |
+| `beneficiary_type`          | `string` | Yes      | Category: `team`, `investor`, `advisor`, or `other`              |
+| `current_timestamp`         | `number` | No       | Optional override for "now" (defaults to current time)           |
 
 **Output:**
 
@@ -677,20 +1269,60 @@ Calculate a token vesting / timelock release schedule for team members, investor
     {
       "release_date": "2025-12-13T12:00:00.000Z",
       "amount": "20833.3333333",
-      "released": true
+      "released": true,
     },
     {
       "release_date": "2026-01-13T12:00:00.000Z",
       "amount": "20833.3333333",
-      "released": false
-    }
-  ]
+      "released": false,
+    },
+  ],
 }
 ```
 
 **Example prompt:**
 
 > _"Compute the vesting schedule for 1,000,000 tokens allocated to the team with a 1-year cliff and 4-year vesting, releasing monthly."_
+
+---
+
+### `estimate_token_fees`
+
+Estimate the Soroban resource costs (CPU, memory, fees) for minting or burning tokens on a Stellar Asset Contract (SAC). This builds the transaction for you and runs a simulation.
+
+**Input:**
+
+| Parameter        | Type     | Required | Description                                            |
+| ---------------- | -------- | -------- | ------------------------------------------------------ |
+| `contract_id`    | `string` | Yes      | The SAC contract address (`C...`)                      |
+| `amount`         | `string` | Yes      | Amount to mint or burn (as a string representing i128) |
+| `address`        | `string` | Yes      | The address receiving (mint) or losing (burn) tokens   |
+| `op`             | `string` | Yes      | Operation to estimate: `mint` or `burn`                |
+| `source_account` | `string` | Yes      | The account invoking the operation                     |
+| `network`        | `string` | No       | Override network: `mainnet`, `testnet`, `futurenet`    |
+
+**Output:**
+
+Returns a simulation result object (see `simulate_transaction`).
+
+```jsonc
+{
+  "status": "success",
+  "return_value": { "type": "void" },
+  "cost": {
+    "cpu_instructions": 725400,
+    "memory_bytes": 112000
+  },
+  "min_resource_fee": "15432",
+  "events": [...]
+}
+```
+
+**Example prompts:**
+
+> _"Estimate the cost to mint 1000 tokens to `GBBD...` using SAC `C...` on testnet."_
+
+> _"How much gas will it cost to burn 500 USDC on mainnet using account `G...`?"_
 
 ---
 
@@ -714,7 +1346,18 @@ Builds a Stellar transaction for deploying a Soroban smart contract. Supports tw
 | `factory_contract_id` | `string` | No | Factory contract ID (`C...`). **Required for factory mode.** |
 | `deploy_function` | `string` | No | Factory deploy function name. Default: `deploy` |
 | `deploy_args` | `array` | No | Typed SCVal arguments: `[{ type?: 'symbol'\|'string'\|'u32'\|'i32'\|'u64'\|'i64'\|'u128'\|'i128'\|'bool'\|'address'\|'bytes'\|'void', value: any }]` |
+| `optimize_cross_contract_call` | `boolean` | No | Factory mode only. If `true`, simulates and assembles the transaction to minimize cross-contract resource overhead before returning XDR. Default: `false` |
 | `network` | `string` | No | Override network: `mainnet`, `testnet`, `futurenet`, `custom` |
+| Parameter             | Type     | Required | Description                                                                                                                                          |
+| --------------------- | -------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `mode`                | `string` | Yes      | `direct` (built-in deployer) or `factory` (via factory contract)                                                                                     |
+| `source_account`      | `string` | Yes      | Stellar public key (`G...`) that will pay fees                                                                                                       |
+| `wasm_hash`           | `string` | No       | 64-char hex WASM hash. **Required for direct mode.**                                                                                                 |
+| `salt`                | `string` | No       | 64-char hex salt for deterministic address. Random if omitted.                                                                                       |
+| `factory_contract_id` | `string` | No       | Factory contract ID (`C...`). **Required for factory mode.**                                                                                         |
+| `deploy_function`     | `string` | No       | Factory deploy function name. Default: `deploy`                                                                                                      |
+| `deploy_args`         | `array`  | No       | Typed SCVal arguments: `[{ type?: 'symbol'\|'string'\|'u32'\|'i32'\|'u64'\|'i64'\|'u128'\|'i128'\|'bool'\|'address'\|'bytes'\|'void', value: any }]` |
+| `network`             | `string` | No       | Override network: `mainnet`, `testnet`, `futurenet`, `custom`                                                                                        |
 
 **Output (direct mode):**
 
@@ -724,7 +1367,7 @@ Builds a Stellar transaction for deploying a Soroban smart contract. Supports tw
   "transaction_xdr": "AAAAAgAAAAE...",
   "predicted_contract_id": "CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE",
   "network": "testnet",
-  "source_account": "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5"
+  "source_account": "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
 }
 ```
 
@@ -734,8 +1377,13 @@ Builds a Stellar transaction for deploying a Soroban smart contract. Supports tw
 {
   "mode": "factory",
   "transaction_xdr": "AAAAAgAAAAE...",
+  "optimization": {
+    "min_resource_fee": "2500",
+    "cpu_instructions": "345",
+    "memory_bytes": "678"
+  },
   "network": "testnet",
-  "source_account": "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5"
+  "source_account": "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
 }
 ```
 
@@ -747,9 +1395,620 @@ Builds a Stellar transaction for deploying a Soroban smart contract. Supports tw
 
 ---
 
+### `sign_with_ledger`
+
+Delegates transaction signing to a physical Ledger hardware wallet. The device must be connected via USB and the Stellar app must be open. This tool will block until the user confirms or rejects the transaction on the device.
+### `export_ai_schemas`
+
+Export comprehensive schema definitions of all Pulsar tools in a format optimized for AI training, documentation generation, and LLM system prompt creation. This tool enables seamless integration of Pulsar tool definitions into external AI/ML systems.
+
+**Supported export formats:**
+
+- **JSON** — Machine-readable schema with type information, examples, and metadata. Ideal for programmatic consumption.
+- **Markdown** — Human-readable documentation with formatted descriptions, code blocks, and best practices.
+- **OpenAPI 3.0** — Industry-standard REST API specification format for integration with API documentation tools and SDK generators.
+### `get_price_feed`
+
+Queries a decentralized oracle contract for the price of a base asset in terms of a quote asset. Assumes the oracle contract implements a standard interface with a `get_price(base_asset: Symbol, quote_asset: Symbol) -> i128` function.
+---
+
+### `calculate_dutch_auction_price`
+
+Calculate the current price of an asset in a Dutch auction with linear decay.
+### `track_ledger_consensus_time`
+
+Samples recent ledgers from Horizon and reports the average, minimum, maximum, and standard deviation of inter-ledger close times. Stellar targets approximately 5 seconds per ledger; deviations indicate network congestion or validator slowdowns.
+
+**Input:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `xdr` | `string` | Yes | Base64-encoded unsigned transaction envelope XDR |
+| `derivation_path` | `string` | No | BIP44 derivation path (default: `44'/148'/0'`) |
+| `network` | `string` | No | Stellar network override (`mainnet`, `testnet`, `futurenet`) |
+
+**Output:**
+
+```jsonc
+{
+  "status": "SUCCESS",
+  "signed_xdr": "AAAAAgAAAAE...",
+  "network": "testnet"
+}
+```
+
+**Example prompt:**
+
+> _"Sign this transaction XDR with my Ledger: `AAAA...`"_
+
+---
+
+### `inspect_xdr`
+
+Analyzes a Stellar transaction XDR for potential security risks before simulation or submission. Flags dangerous operations like account merges, signer changes, or excessive fees.
+| `start_price` | `number` | Yes | Initial price of the asset |
+| `reserve_price` | `number` | Yes | Minimum price (bottom of the curve) |
+| `start_timestamp` | `number` | Yes | Unix timestamp when price begins to decay |
+| `end_timestamp` | `number` | Yes | Unix timestamp when price reaches reserve |
+| `current_timestamp` | `number` | No | Optional override for current time |
+
+---
+
+### `calculate_english_auction_state`
+
+Calculate the next bid requirements and state for an English auction.
+| `sample_size` | `number` | No | Number of recent ledgers to sample (2–100). Default: `10` |
+| `network` | `string` | No | Override the network for this call (`mainnet`, `testnet`, `futurenet`, `custom`) |
+### `get_network_params`
+
+Fetch current Soroban network parameters including resource weights (for CPU, memory, ledger operations), fee thresholds and transaction limits, and inflation/base network parameters. Use this to understand resource pricing and network constraints before building transactions.
+
+**Input:**
+
+| Parameter | Type     | Required | Description                                                                      |
+| --------- | -------- | -------- | -------------------------------------------------------------------------------- |
+| `network` | `string` | No       | Override the network for this call (`mainnet`, `testnet`, `futurenet`, `custom`) |
+### `optimize_contract_bytecode`
+
+Analyzes a Soroban contract WASM blob and provides bytecode-size diagnostics, size-limit checks, and optimization actions that align with Stellar/Soroban best practices.
+
+This tool is designed for pre-deployment quality gates and CI enforcement.
+### `get_protocol_version`
+
+Retrieves the current Stellar protocol version and network information from Horizon. Returns protocol version, Horizon version, supported features, and upgrade status to help track network capabilities and feature availability.
+
+**Input:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `format` | `string` | No | Export format: `json` (default), `markdown`, or `openapi` |
+| `include_examples` | `boolean` | No | Include example inputs and outputs for each tool. Default: `true` |
+| `network` | `string` | No | Optional network filter (does not affect exported schemas, only for future filtering) |
+
+**Output (format: json):**
+
+```jsonc
+{
+  "format": "json",
+  "content_type": "application/json",
+  "schema_count": 7,
+  "include_examples": true,
+  "data": {
+    "version": "1.0.0",
+    "server": "pulsar",
+    "description": "Pulsar MCP Server — Stellar/Soroban tools for automated blockchain operations...",
+    "tools": [
+      {
+        "name": "get_account_balance",
+        "description": "Query the current XLM and issued asset balances...",
+        "category": "query",
+        "inputSchema": { "type": "object", "properties": { ... } },
+        "outputSchema": { "type": "object", "properties": { ... } },
+        "examples": {
+          "input": { "account_id": "GBBD47IF..." },
+          "output": { "account_id": "GBBD47IF...", "balances": [...] }
+        }
+      },
+      ...
+    ],
+    "metadata": {
+      "total_tools": 7,
+      "categories": { "query": 1, "transaction": 2, "contract": 2, "utility": 2 },
+      "security_notes": [...],
+      "stellar_best_practices": [...]
+    }
+  }
+}
+```
+
+**Output (format: markdown):**
+
+Returns a formatted Markdown document with:
+- Overview and table of contents
+- Security & best practices section
+- Per-tool documentation with descriptions, input/output schemas, and examples
+- Warnings for dangerous operations (e.g., `submit_transaction`)
+
+**Output (format: openapi):**
+
+Returns an OpenAPI 3.0.0 specification with:
+- Server definitions
+- Path definitions for each tool
+- Request/response schemas
+- Component definitions (reusable types)
+
+**Use cases:**
+
+1. **AI Training** — Export as JSON to fine-tune language models with accurate tool definitions
+2. **Documentation** — Export as Markdown to auto-generate developer documentation
+3. **API Clients** — Export as OpenAPI to generate type-safe SDK clients
+4. **System Prompts** — Use Markdown output in LLM system prompts for accurate tool invocation
+5. **Integration** — Consume JSON exports in external systems for tool discovery and validation
+
+**Example prompts:**
+
+> _"Export all tool schemas as JSON for fine-tuning an LLM."_
+
+> _"Generate Markdown documentation for all Pulsar tools with examples."_
+
+> _"Export tool definitions in OpenAPI format for SDK generation."_
+| `contract_id` | `string` | Yes | The Soroban oracle contract address (`C...`) |
+| `base_asset` | `string` | Yes | Base asset symbol (e.g., `USD`) |
+| `quote_asset` | `string` | Yes | Quote asset symbol (e.g., `XLM`) |
+| `network` | `string` | No | Override the network for this call (`mainnet`, `testnet`, `futurenet`) |
+| `current_highest_bid` | `number` | Yes | The current bid to beat (0 if none) |
+| `reserve_price` | `number` | Yes | Minimum bid required to start or win |
+| `bid_increment` | `number` | Yes | Minimum amount or percentage to add |
+| `bid_increment_type` | `string` | No | `absolute` or `percentage` (default: `absolute`) |
+| `end_timestamp` | `number` | Yes | Unix timestamp when the auction ends |
+
+---
+
+### `safe_math_compute`
+
+Perform safe integer arithmetic with overflow/underflow protection and Soroban-compatible bounds checking.
+
+**Input:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `xdr` | `string` | Yes | Base64-encoded transaction envelope XDR |
+| `network` | `string` | No | Stellar network override (`mainnet`, `testnet`, `futurenet`) |
+| `xdr` | `string` | Yes | Base64-encoded unsigned transaction envelope XDR |
+| `derivation_path` | `string` | No | BIP44 derivation path (default: `m/44'/148'/0'`) |
+| `network` | `string` | No | Stellar network override (`mainnet`, `testnet`, `futurenet`) |
+| `a` | `string` | Yes | First operand (as string to support large integers) |
+| `b` | `string` | Yes | Second operand (as string) |
+| `operation` | `string` | Yes | `add`, `sub`, `mul`, `div` |
+| `bounds` | `string` | No | `u32`, `i32`, `u64`, `i64`, `u128`, `i128`, `none` (default: `none`) |
+| `wasm_path` | `string` | Yes | Path to the WASM file to analyze |
+| `max_size_kb` | `number` | No | Maximum allowed size in KB (default: `256`) |
+| `strict_mode` | `boolean` | No | If `true`, returns an error when size exceeds `max_size_kb` |
+| `network` | `string` | No | Override network: `mainnet`, `testnet`, `futurenet`, `custom` |
+### `amm`
+
+Interact with Automated Market Maker (AMM) contracts implementing the constant-product (x*y=k) formula. This tool supports token swaps, liquidity provision/removal, pool queries, and price impact calculations with built-in slippage protection.
+
+**Actions:**
+
+| Action | Description |
+|---|---|
+| `swap` | Swap one asset for another with slippage protection |
+| `add_liquidity` | Add liquidity to a pool and receive LP shares |
+| `remove_liquidity` | Burn LP shares to withdraw underlying assets |
+| `get_quote` | Get a swap quote with price impact calculation |
+| `get_pool_info` | Query pool reserves and total LP shares |
+
+#### Swap Tokens
+
+Exchange one asset for another using the AMM pool. The tool builds a transaction that you should simulate before submitting.
+
+**Input (action: `swap`):**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `amm_contract_id` | `string` | Yes | AMM contract ID (`C...`) |
+| `source_account` | `string` | Yes | Your Stellar public key (`G...`) |
+| `offer_asset_code` | `string` | Yes | Asset code you're offering (e.g., `XLM`, `USDC`) |
+| `offer_asset_issuer` | `string` | No | Issuer of offered asset (omit for XLM) |
+| `offer_amount` | `string` | Yes | Amount in stroops (1 XLM = 10,000,000 stroops) |
+| `min_receive_amount` | `string` | Yes | Minimum amount to receive (slippage protection) in stroops |
+| `receive_asset_code` | `string` | Yes | Asset code you want to receive |
+| `receive_asset_issuer` | `string` | No | Issuer of receive asset (omit for XLM) |
+| `network` | `string` | No | Override network: `mainnet`, `testnet`, `futurenet` |
+
+**Output:**
+
+```jsonc
+{
+  "is_safe": false,
+  "risk_level": "HIGH",
+  "findings": [
+    {
+      "level": "HIGH",
+      "type": "ACCOUNT_MERGE",
+      "message": "DANGEROUS: This operation will permanently delete account..."
+    }
+  ],
+  "operation_count": 1,
+  "total_fee": "100",
+  "summary": "Transaction with 1 operation(s): accountMerge."
+  "network": "testnet",
+  "sample_size": 10,
+  "average_consensus_seconds": 5.123,
+  "min_consensus_seconds": 4.891,
+  "max_consensus_seconds": 6.204,
+  "std_dev_seconds": 0.412,
+  "sampled_at": "2026-04-28T12:00:00.000Z",
+  "ledgers": [
+    {
+      "sequence": 999991,
+      "closed_at": "2026-04-28T11:59:55.000Z",
+      "close_time_seconds": 5.0
+    },
+    {
+      "sequence": 999992,
+      "closed_at": "2026-04-28T11:59:60.000Z",
+      "close_time_seconds": 5.0
+    }
+  ]
+}
+```
+
+**Example prompt:**
+
+> _"How fast is the Stellar testnet closing ledgers right now? Is consensus healthy?"_
+  "ledger_sequence": 48123789,
+  "resource_weights": {
+    "cpu_instructions": "100",
+    "memory_bytes": "1000",
+    "ledger_entry_read": "50",
+    "ledger_entry_write": "100",
+    "ledger_entry_create": "150",
+    "transmit_bytes": "200"
+  },
+  "fee_thresholds": {
+    "min_resource_fee": "100",
+    "max_cpu_instructions": "100000000",
+    "max_memory_bytes": "52428800",
+    "ledger_entry_limits": {
+      "max_read_bytes": "10485760",
+      "max_write_bytes": "10485760",
+      "max_create_bytes": "10485760"
+    }
+  },
+  "inflation_params": {
+    "base_reserve": "500000000",
+    "base_fee": "100",
+    "inflation_rate": 1.0
+  },
+  "network_passphrase": "Test SDF Network ; September 2015",
+  "protocol_version": 20
+}
+```
+
+**Resource Weight Units:**
+
+- `cpu_instructions`: Cost multiplier per CPU instruction
+- `memory_bytes`: Cost multiplier per byte of memory
+- `ledger_entry_read`: Cost for reading a ledger entry
+- `ledger_entry_write`: Cost for writing to a ledger entry
+- `ledger_entry_create`: Cost for creating a new ledger entry
+- `transmit_bytes`: Cost per byte of transaction data
+
+**Fee Thresholds:**
+
+- `min_resource_fee`: Minimum fee required per transaction (in stroops)
+- `max_cpu_instructions`: Maximum CPU instructions allowed per transaction
+- `max_memory_bytes`: Maximum memory (in bytes) allowed per transaction
+- Ledger entry limits: Maximum bytes for read, write, and create operations
+
+**Example prompt:**
+
+> _"What are the current resource weights and fee thresholds on testnet? I want to estimate the cost of my transaction."_
+  "wasm_path": "/workspace/target/wasm32v1-none/release/governor.wasm",
+  "size_bytes": 178432,
+  "size_kb": 174.25,
+  "max_size_kb": 256,
+  "exceeds_limit": false,
+  "diagnostics": {
+    "custom_section_bytes": 8120,
+    "code_section_bytes": 129744,
+    "data_section_bytes": 14688,
+    "section_breakdown": []
+  },
+  "suggested_commands": [
+    "cargo build --release --target wasm32v1-none",
+    "stellar contract optimize --wasm <input.wasm> --wasm-out <optimized.wasm>",
+    "wasm-opt -Oz -o <optimized.wasm> <input.wasm>"
+  ],
+  "recommendations": [
+    {
+      "id": "strip-custom-sections",
+      "priority": "high",
+      "title": "Strip debug/custom sections",
+      "rationale": "Custom/debug sections increase binary size and are not needed for on-chain execution.",
+      "action": "Enable symbol stripping and optimization pass to remove custom sections from the final WASM artifact."
+    }
+  ]
+}
+```
+
+See [docs/benchmark_gas.md](./docs/benchmark_gas.md) and [docs/contract-bytecode-optimization.md](./docs/contract-bytecode-optimization.md) for workflow guidance.
+
+**Example prompt:**
+
+> _"Analyze `./target/wasm32v1-none/release/governor.wasm` and tell me how to get it under 256 KB."_
+  "network": "testnet",
+  "protocol_version": 20,
+  "horizon_version": "4.0.0",
+  "core_version": "stellar-core 20.0.0",
+  "supported_features": [
+    "basic_transactions",
+    "multi_signature", 
+    "payment_channels",
+    "soroban_smart_contracts",
+    "footprint_expiration",
+    "fee_bumps",
+    "liquidity_pools",
+    "claimable_balances",
+    "contract_data_ttl",
+    "contract_instance_storage",
+    "smart_contract_auth",
+    "envelope_types",
+    "contract_cost_model",
+    "cpu_instructions",
+    "stellar_asset_contract",
+    "wasm_v2",
+    "complex_contract_auth",
+    "enhanced_fee_structures"
+  ],
+  "timestamp": "2024-01-15T10:30:00.000Z"
+}
+```
+
+**Supported Features by Protocol Version:**
+
+| Protocol Version | Key Features Added |
+|---|---|
+| 11 | Soroban smart contracts, footprint expiration, fee bumps |
+| 12 | Liquidity pools, claimable balances |
+| 13 | Contract data TTL, contract instance storage |
+| 14 | Smart contract auth, envelope types |
+| 15 | Contract cost model, CPU instructions |
+| 16 | Stellar Asset Contract, WASM v2 |
+| 17+ | Complex contract auth, enhanced fee structures |
+
+**Example prompts:**
+
+> _"What protocol version is testnet currently running and what features are available?"_
+
+> _"Check if mainnet supports Soroban smart contracts yet."_
+
+> _"Compare protocol versions between mainnet and testnet to see what's different."_
+  "status": "success",
+  "action": "swap",
+  "transaction_xdr": "AAAAAgAAAAE...",
+  "message": "Swap transaction built. Simulate before submitting."
+}
+```
+
+**Example prompt:**
+
+> _"Swap 10 XLM for USDC using AMM contract `CA3D...` with minimum receive of 150 USDC."_
+
+#### Add Liquidity
+
+Provide liquidity to an AMM pool and receive LP (Liquidity Provider) shares proportional to your contribution.
+
+**Input (action: `add_liquidity`):**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `amm_contract_id` | `string` | Yes | AMM contract ID (`C...`) |
+| `source_account` | `string` | Yes | Your Stellar public key (`G...`) |
+| `asset_a_code` | `string` | Yes | First asset code |
+| `asset_a_issuer` | `string` | No | Issuer of first asset (omit for XLM) |
+| `asset_a_amount` | `string` | Yes | Amount of first asset in stroops |
+| `asset_b_code` | `string` | Yes | Second asset code |
+| `asset_b_issuer` | `string` | No | Issuer of second asset (omit for XLM) |
+| `asset_b_amount` | `string` | Yes | Amount of second asset in stroops |
+| `min_shares_received` | `string` | Yes | Minimum LP shares to receive (slippage protection) |
+| `network` | `string` | No | Override network |
+
+**Output:**
+
+```jsonc
+{
+  "status": "success",
+  "action": "add_liquidity",
+  "transaction_xdr": "AAAAAgAAAAE...",
+  "message": "Add liquidity transaction built. Simulate before submitting."
+}
+```
+
+**Example prompt:**
+
+> _"Add liquidity to pool `CA3D...`: 100 XLM and 200 USDC, minimum 4000 LP shares."_
+
+#### Remove Liquidity
+
+Burn LP shares to withdraw your proportionate share of the pool's underlying assets.
+
+**Input (action: `remove_liquidity`):**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `amm_contract_id` | `string` | Yes | AMM contract ID (`C...`) |
+| `source_account` | `string` | Yes | Your Stellar public key (`G...`) |
+| `shares_amount` | `string` | Yes | Amount of LP shares to burn in stroops |
+| `min_asset_a_amount` | `string` | Yes | Minimum asset A to receive (slippage protection) |
+| `min_asset_b_amount` | `string` | Yes | Minimum asset B to receive (slippage protection) |
+| `network` | `string` | No | Override network |
+
+**Output:**
+
+```jsonc
+{
+  "status": "success",
+  "action": "remove_liquidity",
+  "transaction_xdr": "AAAAAgAAAAE...",
+  "message": "Remove liquidity transaction built. Simulate before submitting."
+}
+```
+
+**Example prompt:**
+
+> _"Remove 500 LP shares from pool `CA3D...`, minimum 50 XLM and 100 USDC."_
+
+#### Get Swap Quote
+
+Get a quote for a potential swap, including expected output, price impact, and exchange rate. This is a read-only operation that doesn't build a transaction.
+
+**Input (action: `get_quote`):**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `amm_contract_id` | `string` | Yes | AMM contract ID (`C...`) |
+| `offer_asset_code` | `string` | Yes | Asset code being offered |
+| `offer_asset_issuer` | `string` | No | Issuer of offered asset (omit for XLM) |
+| `offer_amount` | `string` | Yes | Amount being offered in stroops |
+| `receive_asset_code` | `string` | Yes | Asset code to receive |
+| `receive_asset_issuer` | `string` | No | Issuer of receive asset (omit for XLM) |
+| `network` | `string` | No | Override network |
+
+**Output:**
+
+```jsonc
+{
+  "status": "SUCCESS",
+  "signed_xdr": "AAAAAgAAAAE...",
+  "network": "testnet"
+  "result": "1000000000000000000",
+  "operation": "add",
+  "bounds": "u64",
+  "formatted": "Result of 500000000000000000 add 500000000000000000 is 1000000000000000000 (within u64 bounds)"
+}
+```
+
+  "status": "success",
+  "offer_asset": {
+    "code": "XLM",
+    "issuer": "native",
+    "amount": "10000000"
+  },
+  "receive_asset": {
+    "code": "USDC",
+    "issuer": "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN",
+    "amount": "19850000"
+  },
+  "pool_reserves": {
+    "reserve_a": "1000000000",
+    "reserve_b": "2000000000"
+  },
+  "fee_bps": 30,
+  "price_impact_bps": 150,
+  "exchange_rate": 1.985
+}
+```
+
+**Example prompt:**
+
+> _"Get a quote for swapping 10 XLM to USDC on AMM `CA3D...` with current reserves."_
+
+#### Get Pool Information
+
+Query the current state of an AMM pool, including reserves for both assets and total LP shares in circulation.
+
+**Input (action: `get_pool_info`):**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `amm_contract_id` | `string` | Yes | AMM contract ID (`C...`) |
+| `asset_a_code` | `string` | Yes | First asset code |
+| `asset_a_issuer` | `string` | No | Issuer of first asset (omit for XLM) |
+| `asset_b_code` | `string` | Yes | Second asset code |
+| `asset_b_issuer` | `string` | No | Issuer of second asset (omit for XLM) |
+| `network` | `string` | No | Override network |
+
+**Output:**
+
+```jsonc
+{
+  "contract_id": "CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE",
+  "base_asset": "USD",
+  "quote_asset": "XLM",
+  "price": "1000000",
+  "network": "testnet"
+  "status": "success",
+  "pool": {
+    "asset_a": {
+      "code": "XLM",
+      "issuer": "native",
+      "reserve": "1000000000"
+    },
+    "asset_b": {
+      "code": "USDC",
+      "issuer": "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN",
+      "reserve": "2000000000"
+    },
+    "total_shares": "1414213562",
+    "contract_id": "CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE"
+  },
+  "constant_product": "2000000000000000000"
+}
+```
+
+**Example prompt:**
+
+> _"Is this XDR safe to sign? `AAAA...`"_
+> _"Sign this transaction XDR with my Ledger: `AAAA...`"_
+> _"Get the current USD/XLM price from oracle contract `CA3D...` on testnet."_
+> _"Get pool information for the XLM/USDC pair on AMM contract `CA3D...`."_
+
+---
+
+## AMM Mathematics
+
+pulsar implements the standard constant-product AMM formula (x * y = k) used by Uniswap V2 and similar protocols:
+
+### Swap Calculation
+
+```
+output = (reserve_out * amount_in * (1 - fee)) / (reserve_in + amount_in * (1 - fee))
+```
+
+Where:
+- `fee` = 0.30% (30 basis points)
+- `reserve_in` = Current reserve of the input asset
+- `reserve_out` = Current reserve of the output asset
+- `amount_in` = Amount being swapped
+
+### Liquidity Shares
+
+**Initial deposit:**
+```
+shares = sqrt(amount_a * amount_b)
+```
+
+**Subsequent deposits:**
+```
+shares = min((amount_a * total_shares) / reserve_a, (amount_b * total_shares) / reserve_b)
+```
+
+### Remove Liquidity
+
+```
+amount_a = (shares_burned * reserve_a) / total_shares
+amount_b = (shares_burned * reserve_b) / total_shares
+```
+
+---
+
 ## Example Prompts & Workflows
 
 These are real-world workflows that become possible once pulsar is connected to your AI assistant.
+
 
 ### 1. Inspect an account before sending funds
 
@@ -794,6 +2053,14 @@ pulsar delegates certain operations to the official Stellar CLI to ensure byte-l
 
 Operations that use the CLI backend:
 
+| Tool                       | CLI command used                                                               |
+| -------------------------- | ------------------------------------------------------------------------------ |
+| `fetch_contract_spec`      | `stellar contract info interface`                                              |
+| `simulate_transaction`     | calls Soroban RPC `simulateTransaction` directly                               |
+| `decode_ledger_entry`      | `stellar xdr decode`                                                           |
+| `submit_transaction`       | calls Soroban RPC / Horizon directly, uses CLI for signing if needed           |
+| `compute_vesting_schedule` | pure computation, no external calls                                            |
+| `deploy_contract`          | calls Horizon to fetch sequence number; builds transaction XDR via stellar-sdk |
 | Tool | CLI command used |
 |---|---|
 | `fetch_contract_spec` | `stellar contract info interface` |
@@ -802,6 +2069,8 @@ Operations that use the CLI backend:
 | `submit_transaction` | calls Soroban RPC / Horizon directly, uses CLI for signing if needed |
 | `compute_vesting_schedule` | pure computation, no external calls |
 | `deploy_contract` | calls Horizon to fetch sequence number; builds transaction XDR via stellar-sdk |
+| `track_ledger_consensus_time` | calls Horizon `ledgers()` endpoint; pure computation for statistics |
+| `get_protocol_version` | calls Horizon to fetch latest ledger and root information |
 
 You can inspect the exact CLI commands being executed by setting `LOG_LEVEL=debug`.
 
@@ -822,7 +2091,9 @@ pulsar/
 │   │   ├── decode_ledger_entry.ts
 │   │   ├── submit_transaction.ts
 │   │   ├── compute_vesting_schedule.ts
-│   │   └── deploy_contract.ts
+│   │   ├── deploy_contract.ts
+│   │   └── track_ledger_consensus_time.ts
+│   │   └── get_protocol_version.ts
 │   ├── services/
 │   │   ├── horizon.ts        # Horizon REST client wrapper
 │   │   ├── soroban-rpc.ts    # Soroban JSON-RPC client wrapper
@@ -834,39 +2105,57 @@ pulsar/
 ├── tests/
 │   ├── unit/
 │   └── integration/
+├── contracts/                  # Soroban Rust workspaces
+│   └── reference/            # Reference contracts and test suite
 ├── .env.example
 ├── package.json
 ├── tsconfig.json
 └── README.md
 ```
 
+### Reference Contracts
+
+To ensure pulsar's toolsets (`simulate_transaction`, `fetch_contract_spec`, `decode_ledger_entry`) are rigorously verified, we maintain a `contracts/` directory containing "Reference Contracts". These are standard Soroban Rust contracts that implement various features (events, structs, cross-contract calls, conditional panics).
+
+You can compile these contracts to WASM and run their comprehensive Rust unit tests via:
+
+```bash
+# Build the reference contracts (generates AI-ready WASM specs)
+npm run build:contracts
+
+# Run the comprehensive unit test suite
+npm run test:contracts
+```
+
+These reference WASM files provide an exact baseline to verify the outputs of pulsar tools.
+
 ### Adding a New Tool
 
 1. **Create the handler** in `src/tools/my_new_tool.ts`:
 
 ```typescript
-import { z } from "zod";
-import { McpToolHandler } from "../types.js";
+import { z } from 'zod';
+import { McpToolHandler } from '../types.js';
 
 export const myNewToolSchema = z.object({
-  some_param: z.string().describe("Description for the AI to understand"),
+  some_param: z.string().describe('Description for the AI to understand'),
 });
 
 export const myNewTool: McpToolHandler<typeof myNewToolSchema> = async (input) => {
   const { some_param } = input;
   // ... implementation
-  return { result: "..." };
+  return { result: '...' };
 };
 ```
 
 2. **Register it** in `src/index.ts`:
 
 ```typescript
-import { myNewTool, myNewToolSchema } from "./tools/my_new_tool.js";
+import { myNewTool, myNewToolSchema } from './tools/my_new_tool.js';
 
 server.tool(
-  "my_new_tool",
-  "One-sentence description visible to the AI assistant",
+  'my_new_tool',
+  'One-sentence description visible to the AI assistant',
   myNewToolSchema.shape,
   myNewTool
 );
@@ -898,6 +2187,9 @@ npm test
 # Run integration tests (requires testnet access)
 npm run test:integration
 
+# Run end-to-end (E2E) tests (requires testnet access and stellar CLI)
+RUN_INTEGRATION_TESTS=true npx vitest tests/e2e
+
 # Run with coverage
 npm run test:coverage
 
@@ -914,12 +2206,70 @@ npm run typecheck
 
 ---
 
+## Monitoring
+
+### Prometheus Metrics
+
+pulsar exposes detailed Prometheus metrics for monitoring tool performance, resource usage, and error rates.
+
+#### Accessing Metrics
+
+By default, metrics are available at `http://localhost:9090/metrics` (customizable via `METRICS_PORT`).
+
+```bash
+# Fetch metrics in Prometheus format
+curl http://localhost:9090/metrics
+
+# Health check endpoint
+curl http://localhost:9090/health
+```
+
+#### Example Prometheus Queries
+
+```promql
+# Average tool execution time (last 5 minutes)
+rate(pulsar_tool_duration_seconds_sum[5m]) / rate(pulsar_tool_duration_seconds_count[5m])
+
+# Tool error rate
+rate(pulsar_tool_errors_total[5m])
+
+# Current heap memory usage in MB
+pulsar_heap_memory_used_bytes / 1024 / 1024
+
+# Active tool invocations
+pulsar_active_tool_invocations
+
+# Total successful invocations by tool
+sum by (tool_name) (pulsar_tool_invocations_total{status="success"})
+```
+
+#### Metrics in Docker
+
+When running pulsar in Docker, expose the metrics port:
+
+```bash
+docker run -p 9090:9090 ghcr.io/benelabs/pulsar:latest
+```
+
+#### Disabling Metrics
+
+If you want to reduce memory overhead or disable metrics export for privacy reasons, set:
+
+```env
+METRICS_ENABLED=false
+```
+
+The HTTP metrics server will not start, and no metrics will be collected.
+
+---
+
 ## Security Considerations
 
 - **Never commit `STELLAR_SECRET_KEY`** to version control. Add `.env` to `.gitignore`. Use a throwaway funded Testnet keypair during development.
 - **`submit_transaction` is irreversible.** Always call `simulate_transaction` first to verify the transaction will succeed, especially on Mainnet.
 - **Input validation.** All tool inputs are validated with Zod schemas before any network call. Malformed XDR or invalid public keys are rejected early with clear error messages.
 - **No key storage.** pulsar does not persist keys. The `STELLAR_SECRET_KEY` environment variable is read at runtime and never written to disk by the server.
+- **Tool Execution Audit Logging.** pulsar maintains a local file log (defaults to `audit.log`) of all tools executed, including inputs and outcomes. For strict security standards and data privacy, sensitive fields (such as `STELLAR_SECRET_KEY`, `xdr`, and `envelope_xdr`) are completely redacted, and public identifiers like Stellar account addresses (`G...`) and Soroban Contract IDs (`C...`) are hashed to ensure anonymization.
 - **Rate limiting.** The server does not implement rate limiting internally — if you are hitting Horizon or the Soroban RPC heavily, consider running your own node or using a provider with rate-limit controls.
 - **Testnet first.** The default `STELLAR_NETWORK` is `testnet`. You must explicitly set `STELLAR_NETWORK=mainnet` to interact with the live network. This is intentional.
 
@@ -932,14 +2282,21 @@ npm run typecheck
 - [x] `simulate_transaction` — dry-run via Soroban RPC
 - [x] `decode_ledger_entry` — XDR decode
 - [x] `submit_transaction` — broadcast + wait for result
+- [x] `soroban_math` — fixed-point, statistical, and financial math
 - [x] `compute_vesting_schedule` — token vesting / timelock schedule calculator
 - [x] `deploy_contract` — deploy Soroban contracts via built-in deployer or factory pattern
+- [x] `get_price_feed` — query decentralized oracle contracts for real-time asset prices
+- [x] Prometheus metrics export — monitor tool performance, errors, and resource usage
+- [x] `get_liquidity_pool` — fetch AMM pool reserves, shares, and fee settings
+- [x] `get_fee_stats` — retrieve network fee statistics and recommended fees
+- [x] `latency_based_rpc` — automatic routing to the fastest Soroban RPC endpoint
+- [x] `get_protocol_version` — track network upgrades and feature availability
+- [x] `amm` — Automated Market Maker (constant-product x*y=k) with swap, liquidity, and quote operations
 - [ ] `get_transaction_history` — paginated history for an account
 - [ ] `stream_events` — subscribe to Soroban contract events
 - [ ] `build_transaction` — construct a Soroban invoke transaction from contract spec + args (without needing pre-built XDR)
 - [ ] `fund_testnet_account` — call Friendbot to fund a new Testnet account
 - [ ] `get_offers` — query open DEX offers for an account or asset pair
-- [ ] `get_liquidity_pool` — fetch liquidity pool details
 - [ ] `watch_account` — streaming ledger updates for an account
 - [ ] SSE transport option (for web-based MCP hosts)
 - [ ] Rust implementation (for lower latency and single-binary distribution)
@@ -981,6 +2338,7 @@ npm test && npm run lint
 ### Reporting Issues
 
 Open an issue with:
+
 1. The tool name and inputs you used (redact any secret keys).
 2. The error message or unexpected output.
 3. Your `STELLAR_NETWORK` and `stellar --version`.
@@ -989,15 +2347,15 @@ Open an issue with:
 
 ## Related Projects
 
-| Project | Description |
-|---|---|
-| [Stellar Developer Docs](https://developers.stellar.org) | Official documentation for Stellar and Soroban |
-| [Stellar CLI](https://github.com/stellar/stellar-cli) | Official CLI for Soroban development |
-| [@stellar/stellar-sdk](https://github.com/stellar/js-stellar-sdk) | Official JavaScript/TypeScript SDK |
-| [Model Context Protocol](https://modelcontextprotocol.io) | The open protocol this server implements |
-| [Stella (SDF)](https://stellar.org/blog) | SDF's official headless AI assistant for Stellar |
-| [Soroban Examples](https://github.com/stellar/soroban-examples) | Example Soroban smart contracts |
-| [Stellar Laboratory](https://lab.stellar.org) | Browser-based tool for building and signing transactions |
+| Project                                                           | Description                                              |
+| ----------------------------------------------------------------- | -------------------------------------------------------- |
+| [Stellar Developer Docs](https://developers.stellar.org)          | Official documentation for Stellar and Soroban           |
+| [Stellar CLI](https://github.com/stellar/stellar-cli)             | Official CLI for Soroban development                     |
+| [@stellar/stellar-sdk](https://github.com/stellar/js-stellar-sdk) | Official JavaScript/TypeScript SDK                       |
+| [Model Context Protocol](https://modelcontextprotocol.io)         | The open protocol this server implements                 |
+| [Stella (SDF)](https://stellar.org/blog)                          | SDF's official headless AI assistant for Stellar         |
+| [Soroban Examples](https://github.com/stellar/soroban-examples)   | Example Soroban smart contracts                          |
+| [Stellar Laboratory](https://lab.stellar.org)                     | Browser-based tool for building and signing transactions |
 
 ---
 
