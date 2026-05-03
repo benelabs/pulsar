@@ -20,6 +20,8 @@ const NETWORK_RPC_URLS: Record<string, string> = {
  * handled by the RpcRouter class (see rpc-router.ts).
  */
 
+const rpcCache = new Map<string, SorobanRpc.Server>();
+
 import { getSorobanServer as routerGetSorobanServer, getBestRpcUrl as routerGetBestRpcUrl } from "./rpc-router.js";
 
 /**
@@ -68,6 +70,15 @@ export function getSorobanServer(network?: string): SorobanRpc.Server {
 const serverCache = new Map<string, SorobanRpc.Server>();
 
 export function getSorobanServer(network?: string): SorobanRpc.Server {
+  const net = network ?? config.stellarNetwork;
+  const cacheKey = net;
+
+  if (!rpcCache.has(cacheKey)) {
+    const server = new SorobanRpc.Server(getRpcUrl(network), { allowHttp: false });
+    rpcCache.set(cacheKey, server);
+  }
+
+  return rpcCache.get(cacheKey)!;
   const url = getRpcUrl(network);
   let server = serverCache.get(url);
   if (!server) {

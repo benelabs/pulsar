@@ -1,3 +1,5 @@
+import { describe, it, expect, vi } from "vitest";
+import { benchmarkGas } from "./benchmark_gas.js";
 import { describe, it, expect, vi } from 'vitest';
 
 import { benchmarkGas } from './benchmark_gas.js';

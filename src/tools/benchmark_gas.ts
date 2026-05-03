@@ -1,3 +1,7 @@
+import { logger } from "../logger.js";
+import { performance } from "perf_hooks";
+import { fileURLToPath } from "url";
+import type { BenchmarkGasInput } from "../schemas/tools.js";
 import { performance } from 'perf_hooks';
 import { fileURLToPath } from 'url';
 
@@ -33,6 +37,16 @@ import { simulateTransaction } from './simulate_transaction.js';
  * Benchmarks gas (CPU/Memory) usage for a Stellar/Soroban contract execution.
  * Compares Pulsar-reported gas with actual resource usage.
  */
+export async function benchmarkGas(input: BenchmarkGasInput) {
+  const { contractId, method, args = [], account } = input;
+  logger.info("Starting gas benchmarking...");
+  
+  // Lazy load the simulation tool to keep startup light
+  const { simulateTransaction } = await import("./simulate_transaction.js");
+  const { TransactionBuilder, Operation, nativeToScVal, Networks } = await import("@stellar/stellar-sdk");
+  const { getHorizonServer } = await import("../services/horizon.js");
+  const { config } = await import("../config.js");
+
 export async function benchmarkGas({
   contractId,
   method,
@@ -67,6 +81,26 @@ export async function benchmarkGas({
   let simulationResult;
   let error: unknown;
   try {
+    const horizon = getHorizonServer(config.stellarNetwork);
+    const sourceAccount = await horizon.loadAccount(account);
+    
+    const networkPassphrase = config.stellarNetwork === "mainnet" ? Networks.PUBLIC : 
+                             config.stellarNetwork === "futurenet" ? Networks.FUTURENET : 
+                             Networks.TESTNET;
+
+    const tx = new TransactionBuilder(sourceAccount, { 
+      fee: "100", 
+      networkPassphrase 
+    })
+    .addOperation(Operation.invokeContractFunction({
+      contract: contractId,
+      function: method,
+      args: args.map(arg => nativeToScVal(arg))
+    }))
+    .setTimeout(0)
+    .build();
+
+    simulationResult = await simulateTransaction({ xdr: tx.toXDR() });
     // Note: simulateTransaction requires an XDR envelope.
     // This helper tool currently passes a placeholder to satisfy typechecks.
     simulationResult = await simulateTransaction({
@@ -143,6 +177,7 @@ export async function benchmarkGas({
   };
 }
 
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
 /* eslint-disable no-console */
 const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
 if (isMain) {

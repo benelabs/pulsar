@@ -1,7 +1,7 @@
 import {
-  Horizon,
   Keypair,
   Networks,
+  SorobanRpc,
   Transaction,
   FeeBumpTransaction,
   TransactionBuilder,
@@ -13,12 +13,12 @@ import type { McpToolHandler } from '../types.js';
 import logger from '../logger.js';
 import { PulsarNetworkError, PulsarValidationError } from '../errors.js';
 import { config } from "../config.js";
-import {
-  SubmitTransactionInputSchema,
-} from "../schemas/tools.js";
+import type { SubmitTransactionInput } from "../schemas/tools.js";
 import type { McpToolHandler } from "../types.js";
 import logger from "../logger.js";
 import { PulsarNetworkError, PulsarValidationError } from "../errors.js";
+import { getHorizonServer } from "../services/horizon.js";
+import { getSorobanServer, getRpcUrl } from "../services/soroban-rpc.js";
 import { getSorobanServer } from "../services/soroban-rpc.js";
 
 // ---------------------------------------------------------------------------
@@ -59,6 +59,10 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 // Tool handler
 // ---------------------------------------------------------------------------
 
+export const submitTransaction: McpToolHandler<
+  typeof import("../schemas/tools.js").SubmitTransactionInputSchema
+> = async (input: SubmitTransactionInput) => {
+  const validatedData = input;
 export const submitTransaction: McpToolHandler<typeof SubmitTransactionInputSchema> = async (
   input: unknown
 ) => {
@@ -76,7 +80,6 @@ export const submitTransaction: McpToolHandler<typeof SubmitTransactionInputSche
   const validatedData = validatedInput.data;
 
   const network = validatedData.network ?? config.stellarNetwork;
-  const horizonUrl = resolveHorizonUrl(network);
   const networkPassphrase = resolveNetworkPassphrase(network);
   const timeoutMs = validatedData.wait_timeout_ms ?? 30_000;
 
@@ -114,12 +117,14 @@ export const submitTransaction: McpToolHandler<typeof SubmitTransactionInputSche
   }
 
   // ------------------------------------------------------------------
-  // 4. Submit via Horizon
+  // 4. Submit via Horizon (uses cached server instance)
   // ------------------------------------------------------------------
-  const server = new Horizon.Server(horizonUrl, { allowHttp: false });
+  const horizonServer = getHorizonServer(network);
 
-  let submitResponse: Horizon.HorizonApi.SubmitTransactionResponse;
+  let submitResponse: ReturnType<typeof horizonServer.submitTransaction>;
   try {
+    logger.debug({ hash: tx.hash().toString('hex'), network }, "Submitting transaction to Horizon");
+    submitResponse = await horizonServer.submitTransaction(tx);
     logger.debug({ hash: tx.hash().toString('hex'), network }, 'Submitting transaction to Horizon');
     submitResponse = await server.submitTransaction(tx);
   } catch (err: unknown) {
@@ -151,12 +156,13 @@ export const submitTransaction: McpToolHandler<typeof SubmitTransactionInputSche
   };
 
   // ------------------------------------------------------------------
-  // 5. Optionally wait for finalisation via Soroban RPC
+  // 5. Optionally wait for finalisation via Soroban RPC (uses cached server)
   // ------------------------------------------------------------------
   if (!validatedData.wait_for_result) {
     return { ...baseResult, status: 'SUBMITTED' };
   }
 
+  const rpcUrl = getRpcUrl(network);
   // Poll Soroban RPC (getTransaction) until terminal state or timeout
   const rpcUrl = config.sorobanRpcUrl ?? resolveRpcUrl(network);
   const { rpc: SorobanRpc } = await import('@stellar/stellar-sdk');
@@ -248,6 +254,9 @@ function extractDiagnosticEvents(
       }
     ).diagnosticEventsXdr;
     if (!Array.isArray(events)) return null;
+    return events.map((e) =>
+      typeof e?.toXDR === "function" ? e.toXDR("base64") : e
+    );
     return events.map((e) => (typeof e?.toXDR === 'function' ? e.toXDR('base64') : e));
   } catch {
     return null;

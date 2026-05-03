@@ -1,6 +1,9 @@
-import { z } from 'zod';
-
 import { decodeLedgerEntry } from '../services/xdr.js';
+import type { McpToolHandler } from '../types.js';
+import {
+  DecodeLedgerEntryInputSchema,
+  type DecodeLedgerEntryInput,
+} from '../schemas/tools.js';
 import { McpResult } from '../types.js';
 
 /**
@@ -35,6 +38,9 @@ export type DecodeLedgerEntryInput = z.infer<typeof decodeLedgerEntrySchema>;
  * Tool handler for decode_ledger_entry.
  * Takes a raw base64 XDR ledger entry and returns a human-readable JSON representation.
  */
+export const decodeLedgerEntryTool: McpToolHandler<
+  typeof DecodeLedgerEntryInputSchema
+> = async (input: DecodeLedgerEntryInput) => {
 export const decodeLedgerEntryTool = async (input: DecodeLedgerEntryInput): Promise<McpResult> => {
   const { xdr, entry_type: entryType } = input;
   const { xdr, entry_type: entryType, compression } = input;

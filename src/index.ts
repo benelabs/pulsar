@@ -38,6 +38,16 @@ import {
   McpError,
 } from '@modelcontextprotocol/sdk/types.js';
 
+import { config } from "./config.js";
+import {
+  parseGetAccountBalance,
+  parseFetchContractSpec,
+  parseSubmitTransaction,
+  parseSimulateTransaction,
+  parseComputeVestingSchedule,
+  parseDeployContract,
+  parseDecodeLedgerEntry,
+  parseBenchmarkGas,
 import { config } from './config.js';
 import { fetchContractSpec } from './tools/fetch_contract_spec.js';
 import { fetchContractSpec, fetchContractSpecSchema } from './tools/fetch_contract_spec.js';
@@ -694,6 +704,39 @@ class PulsarServer {
           },
         },
         {
+          name: 'decode_ledger_entry',
+          description: 'Decode a raw base64-encoded XDR ledger entry into a human-readable JSON structure. Useful for inspecting persistent storage slots of Soroban contracts, or debugging what is actually stored on-chain.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              xdr: {
+                type: 'string',
+                description: 'Base64-encoded XDR of the ledger entry (key or value)',
+              },
+              entry_type: {
+                type: 'string',
+                enum: ['account', 'trustline', 'contract_data', 'contract_code', 'offer', 'data'],
+                description: 'Hint for decoding: account, trustline, contract_data, contract_code, offer, data',
+              },
+            },
+            required: ['xdr'],
+          },
+        },
+        {
+          name: 'benchmark_gas',
+          description: 'Benchmark CPU and Memory usage for a Soroban contract execution by comparing simulation results with local execution overhead.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              contractId: { type: 'string', description: 'Soroban contract ID (C...)' },
+              method: { type: 'string', description: 'Method name to invoke' },
+              account: { type: 'string', description: 'Stellar public key (G...) executing the call' },
+              args: {
+                type: 'array',
+                description: 'Arguments for the contract method',
+              },
+            },
+            required: ['contractId', 'method', 'account'],
           name: 'create_claimable_balance',
           description:
             'Builds a Stellar transaction to create a claimable balance with custom claimants and predicates. ' +
@@ -2114,6 +2157,12 @@ class PulsarServer {
 
         switch (name) {
           case 'get_account_balance': {
+            const parsed = parseGetAccountBalance(args);
+            if (!parsed.success) {
+              throw new PulsarValidationError(`Invalid input for get_account_balance`, parsed.error.format());
+            }
+            const { getAccountBalance } = await import('./tools/get_account_balance.js');
+            const result = await getAccountBalance(parsed.data);
             const parsed = GetAccountBalanceInputSchema.safeParse(args);
             if (!parsed.success) {
               throw new PulsarValidationError(`Invalid input for get_account_balance`, parsed.error.format());
@@ -2233,6 +2282,9 @@ class PulsarServer {
               ],
             };
           }
+
+          case 'fetch_contract_spec': {
+            const parsed = parseFetchContractSpec(args);
 
           case 'fetch_contract_spec': {
             const parsed = fetchContractSpecSchema.safeParse(args);
@@ -2455,6 +2507,13 @@ class PulsarServer {
                 parsed.error.format()
               );
             }
+            const { fetchContractSpec } = await import('./tools/fetch_contract_spec.js');
+            const result = await fetchContractSpec(parsed.data);
+            return { content: [{ type: "text", text: JSON.stringify(result) }] };
+          }
+
+          case 'submit_transaction': {
+            const parsed = parseSubmitTransaction(args);
             const result = batchEvents(parsed.data);
             return {
               content: [
@@ -2471,6 +2530,8 @@ class PulsarServer {
             if (!parsed.success) {
               throw new PulsarValidationError(`Invalid input for generate_contract_docs`, parsed.error.format());
             }
+            const { submitTransaction } = await import('./tools/submit_transaction.js');
+            const result = await submitTransaction(parsed.data);
             const result = await generateContractDocs(parsed.data);
           case 'deploy_contract': {
             const parsed = DeployContractInputSchema.parse(args);
@@ -2499,6 +2560,8 @@ class PulsarServer {
             };
           }
 
+          case 'simulate_transaction': {
+            const parsed = parseSimulateTransaction(args);
           case 'export_data': {
             const parsed = ExportDataInputSchema.safeParse(args);
             if (!parsed.success) {
@@ -2508,6 +2571,8 @@ class PulsarServer {
                 parsed.error.format()
               );
             }
+            const { simulateTransaction } = await import('./tools/simulate_transaction.js');
+            const result = await simulateTransaction(parsed.data);
             const result = await exportData(parsed.data);
           case 'check_network_status': {
             const parsed = CheckNetworkStatusInputSchema.safeParse(args);
@@ -2538,6 +2603,8 @@ class PulsarServer {
             };
           }
 
+          case 'compute_vesting_schedule': {
+            const parsed = parseComputeVestingSchedule(args);
           case 'generate_contract_client': {
             const parsed = GenerateContractClientInputSchema.safeParse(args);
             if (!parsed.success) {
@@ -2548,12 +2615,16 @@ class PulsarServer {
                 parsed.error.format()
               );
             }
+            const { computeVestingSchedule } = await import('./tools/compute_vesting_schedule.js');
+            const result = await computeVestingSchedule(parsed.data);
             const result = await generateContractClient(parsed.data);
             return {
               content: [{ type: 'text', text: JSON.stringify(result) }],
             };
           }
 
+          case 'deploy_contract': {
+            const parsed = parseDeployContract(args);
       try {
         // Rate Limiting Middleware
         const argsObj = args as Record<string, unknown>;
@@ -2580,6 +2651,8 @@ class PulsarServer {
                 parsed.error.format()
               );
             }
+            const { deployContract } = await import('./tools/deploy_contract.js');
+            const result = await deployContract(parsed.data);
             const result = await manageDaoTreasury(parsed.data);
           case 'get_token_transfer_fee': {
             const parsed = GetTokenTransferFeeInputSchema.safeParse(args);
@@ -3007,6 +3080,13 @@ class PulsarServer {
             };
           }
 
+          case 'benchmark_gas': {
+            const parsed = parseBenchmarkGas(args);
+            if (!parsed.success) {
+              throw new PulsarValidationError(`Invalid input for benchmark_gas`, parsed.error.format());
+            }
+            const { benchmarkGas } = await import('./tools/benchmark_gas.js');
+            const result = await benchmarkGas(parsed.data);
           case 'sign_with_ledger': {
             const parsed = SignWithLedgerInputSchema.safeParse(args);
             if (!parsed.success) {
@@ -3015,6 +3095,20 @@ class PulsarServer {
             const result = await signWithLedger(parsed.data);
             return {
               content: [{ type: 'text', text: JSON.stringify(result) }],
+            };
+          }
+
+          case 'decode_ledger_entry': {
+            const parsed = parseDecodeLedgerEntry(args);
+            if (!parsed.success) {
+              throw new PulsarValidationError(`Invalid input for decode_ledger_entry`, parsed.error.format());
+            }
+            const { decodeLedgerEntryTool } = await import('./tools/decode_ledger_entry.js');
+            const result = await decodeLedgerEntryTool(parsed.data);
+            return {
+              content: [{ type: 'text', text: JSON.stringify(result) }],
+              // If the tool returns an error, ensure it's marked as such for MCP
+              isError: 'error' in result,
             };
           }
 

@@ -15,6 +15,8 @@ const NETWORK_HORIZON_URLS: Record<string, string> = {
   futurenet: 'https://horizon-futurenet.stellar.org',
 };
 
+const horizonCache = new Map<string, Horizon.Server>();
+
 export function getHorizonUrl(network?: string): string {
   const net = network ?? config.stellarNetwork;
   if (net === 'custom') {
@@ -43,6 +45,15 @@ export function getHorizonUrl(network?: string): string {
 const serverCache = new Map<string, Horizon.Server>();
 
 export function getHorizonServer(network?: string): Horizon.Server {
+  const net = network ?? config.stellarNetwork;
+  const cacheKey = net;
+
+  if (!horizonCache.has(cacheKey)) {
+    const server = new Horizon.Server(getHorizonUrl(network), { allowHttp: true });
+    horizonCache.set(cacheKey, server);
+  }
+
+  return horizonCache.get(cacheKey)!;
   const store = requestContext.getStore();
   const headers = store ? { 'X-Request-ID': store.requestId } : undefined;
   return new Horizon.Server(getHorizonUrl(network), { allowHttp: true, headers });

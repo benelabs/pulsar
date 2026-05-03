@@ -1,3 +1,8 @@
+import { ContractIdSchema } from "../schemas/index.js";
+import {
+  FetchContractSpecInputSchema,
+  type FetchContractSpecInput,
+} from "../schemas/tools.js";
 import { z } from 'zod';
 
 import { ContractIdSchema } from '../types.js';
@@ -13,6 +18,7 @@ import { runStellarCli } from "../services/stellar-cli.js";
 import { getRpcUrl } from "../services/soroban-rpc.js";
 import { config } from "../config.js";
 import { PulsarValidationError } from "../errors.js";
+import type { McpToolHandler } from "../types.js";
 import { normalizeAddress, AddressCache } from "../utils/address.js";
 
 export const fetchContractSpecSchema = z.object({
@@ -47,6 +53,9 @@ export interface FetchContractSpecOutput {
   raw_xdr: string;
 }
 
+export const fetchContractSpec: McpToolHandler<
+  typeof FetchContractSpecInputSchema
+> = async (input: FetchContractSpecInput) => {
 // Contract specs are immutable once deployed — a 5-minute TTL avoids
 // redundant CLI subprocess spawns for repeated lookups of the same contract.
 export const contractSpecCache = new AddressCache<FetchContractSpecOutput>(5 * 60_000);
@@ -92,6 +101,8 @@ export async function fetchContractSpec(
     });
   }
 
+  return parseCliSpec(raw, input.contract_id, network);
+};
   const result = parseCliSpec(raw, contract_id, network);
   contractSpecCache.set(cacheKey, result);
   return result;

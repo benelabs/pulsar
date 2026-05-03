@@ -11,6 +11,9 @@ import { getHorizonServer } from '../services/horizon.js';
 import { PulsarNetworkError, PulsarValidationError } from '../errors.js';
 import type { McpToolHandler } from '../types.js';
 import { config } from "../config.js";
+import type { GetAccountBalanceInput } from "../schemas/tools.js";
+import { getHorizonServer } from "../services/horizon.js";
+import { PulsarNetworkError } from "../errors.js";
 import { GetAccountBalanceInputSchema } from "../schemas/tools.js";
 import { getHorizonServer } from "../services/horizon.js";
 import { PulsarNetworkError, PulsarValidationError } from "../errors.js";
@@ -113,6 +116,9 @@ export const accountBalanceCache = new AddressCache<GetAccountBalanceOutput>(15_
  * Queries Horizon for an account's XLM and asset balances.
  * Returns structured JSON.
  */
+export const getAccountBalance: McpToolHandler<typeof import("../schemas/tools.js").GetAccountBalanceInputSchema> = async (input: GetAccountBalanceInput) => {
+  const { account_id, network, asset_code, asset_issuer } = input;
+  const server = getHorizonServer(network ?? config.stellarNetwork);
 export const getAccountBalance: McpToolHandler<typeof GetAccountBalanceInputSchema> = async (
   input: unknown
 ) => {

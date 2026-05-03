@@ -12,6 +12,15 @@ import {
   Networks,
 } from '@stellar/stellar-sdk';
 
+import { getHorizonServer } from "../services/horizon.js";
+import { config } from "../config.js";
+import type { DeployContractInput } from "../schemas/tools.js";
+import type { McpToolHandler } from "../types.js";
+import {
+  PulsarValidationError,
+  PulsarNetworkError,
+} from "../errors.js";
+import logger from "../logger.js";
 import { getHorizonServer } from '../services/horizon.js';
 import { getSorobanServer } from '../services/soroban-rpc.js';
 import { config } from '../config.js';
@@ -94,6 +103,10 @@ function buildScVal(arg: { type?: string; value?: unknown }): xdr.ScVal {
  * Returns the unsigned transaction XDR and, for direct mode, the predicted
  * deterministic contract address.
  */
+export const deployContract: McpToolHandler<
+  typeof import("../schemas/tools.js").DeployContractInputSchema
+> = async (input: DeployContractInput) => {
+  const data = input;
 export const deployContract: McpToolHandler<typeof DeployContractInputSchema> = async (
   input: unknown
 ) => {

@@ -4,6 +4,10 @@
  * Each tool gets a dedicated schema export that combines base validators
  * and tool-specific constraints. These schemas are used to validate inputs
  * before any RPC calls are made.
+ *
+ * PERFORMANCE: Schemas are compiled once at module load. For high-frequency
+ * tools, we also expose pre-bound parse functions to avoid repeated method
+ * lookups during validation.
  */
 
 import { z } from 'zod';
@@ -27,12 +31,12 @@ const Hex32Schema = z
   .describe('32-byte value encoded as 64 hex characters');
 
 /**
- * Schema for get_account_balance tool
- *
- * Inputs:
- * - account_id: Stellar public key (required)
- * - network: Optional network override
- */
+  * Schema for get_account_balance tool
+  *
+  * Inputs:
+  * - account_id: Stellar public key (required)
+  * - network: Optional network override
+  */
 export const GetAccountBalanceInputSchema = z.object({
   account_id: StellarPublicKeySchema,
   network: NetworkSchema.optional(),
@@ -94,6 +98,9 @@ export const GetAccountBalancesInputSchema = z.object({
 
 export type GetAccountBalancesInput = z.infer<typeof GetAccountBalancesInputSchema>;
 
+// Pre-compiled validator for high-frequency usage
+export const parseGetAccountBalance = GetAccountBalanceInputSchema.safeParse.bind(GetAccountBalanceInputSchema);
+
 /**
  * Schema for submit_transaction tool
  *
@@ -120,6 +127,9 @@ export const SubmitTransactionInputSchema = z.object({
 
 export type SubmitTransactionInput = z.infer<typeof SubmitTransactionInputSchema>;
 
+// Pre-compiled validator for high-frequency usage
+export const parseSubmitTransaction = SubmitTransactionInputSchema.safeParse.bind(SubmitTransactionInputSchema);
+
 /**
  * Schema for potential future contract_read tool.
  * Validates a contract ID, method name, and optional JSON parameters.
@@ -137,6 +147,8 @@ export const ContractReadInputSchema = z.object({
 
 export type ContractReadInput = z.infer<typeof ContractReadInputSchema>;
 
+// Pre-compiled validator
+export const parseContractRead = ContractReadInputSchema.safeParse.bind(ContractReadInputSchema);
 const ScValTypeSchema = z
   .enum([
     "symbol",
@@ -347,6 +359,9 @@ export type CalculateEnglishAuctionStateInput = z.infer<
   typeof CalculateEnglishAuctionStateInputSchema
 >;
 
+// Pre-compiled validator
+export const parseSimulateTransaction = SimulateTransactionInputSchema.safeParse.bind(SimulateTransactionInputSchema);
+
 /**
  * Schema for generate_contract_docs tool
  *
@@ -403,6 +418,9 @@ export const ComputeVestingScheduleInputSchema = z.object({
 });
 
 export type ComputeVestingScheduleInput = z.infer<typeof ComputeVestingScheduleInputSchema>;
+
+// Pre-compiled validator
+export const parseComputeVestingSchedule = ComputeVestingScheduleInputSchema.safeParse.bind(ComputeVestingScheduleInputSchema);
 
 /**
  * Schema for deploy_contract tool
@@ -500,6 +518,59 @@ export type GetAccountHistoryInput = z.infer<typeof GetAccountHistoryInputSchema
 
 export type DeployContractInput = z.infer<typeof DeployContractInputSchema>;
 
+// Pre-compiled validator
+export const parseDeployContract = DeployContractInputSchema.safeParse.bind(DeployContractInputSchema);
+
+/**
+ * Schema for fetch_contract_spec tool
+ *
+ * Inputs:
+ * - contract_id: Soroban contract ID (required)
+ * - network: Optional network override
+ */
+export const FetchContractSpecInputSchema = z.object({
+  contract_id: ContractIdSchema,
+  network: z
+    .enum(["mainnet", "testnet", "futurenet", "custom"])
+    .optional()
+    .describe("Override the active network for this call."),
+});
+
+export type FetchContractSpecInput = z.infer<typeof FetchContractSpecInputSchema>;
+
+// Pre-compiled validator
+export const parseFetchContractSpec = FetchContractSpecInputSchema.safeParse.bind(FetchContractSpecInputSchema);
+
+/**
+ * Schema for decode_ledger_entry tool input.
+ */
+export const DecodeLedgerEntryInputSchema = z.object({
+  xdr: XdrBase64Schema.describe('Base64-encoded XDR of the ledger entry (key or value)'),
+  entry_type: z
+    .enum(['account', 'trustline', 'contract_data', 'contract_code', 'offer', 'data'])
+    .optional()
+    .describe('Hint for decoding: account, trustline, contract_data, contract_code, offer, data'),
+});
+
+export type DecodeLedgerEntryInput = z.infer<typeof DecodeLedgerEntryInputSchema>;
+
+// Pre-compiled validator for high-frequency usage
+export const parseDecodeLedgerEntry = DecodeLedgerEntryInputSchema.safeParse.bind(DecodeLedgerEntryInputSchema);
+
+/**
+ * Schema for benchmark_gas tool input.
+ */
+export const BenchmarkGasInputSchema = z.object({
+  contractId: ContractIdSchema,
+  method: z.string().min(1),
+  args: z.array(z.unknown()).optional(),
+  account: StellarPublicKeySchema,
+});
+
+export type BenchmarkGasInput = z.infer<typeof BenchmarkGasInputSchema>;
+
+// Pre-compiled validator
+export const parseBenchmarkGas = BenchmarkGasInputSchema.safeParse.bind(BenchmarkGasInputSchema);
 /**
  * Recursive schema for claimable balance predicates.
  */

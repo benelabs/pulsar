@@ -21,7 +21,7 @@ export type McpToolHandler<T extends z.ZodTypeAny = z.ZodTypeAny> = (
 ) => Promise<Record<string, unknown>>;
 
 /**
- * Common Zod schemas for tool inputs.
+ * Common types for tool results and errors.
  */
 export const AccountIdSchema = z
   .string()
