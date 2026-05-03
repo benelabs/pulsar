@@ -21,4 +21,21 @@ export function getRpcUrl(network?: string): string {
  */
 export function getSorobanServer(network?: string): SorobanRpc.Server {
   return routerGetSorobanServer(network);
+// Reuse one SorobanRpc.Server per unique URL — avoids repeated connection
+// setup on every simulate/submit call.
+const serverCache = new Map<string, SorobanRpc.Server>();
+
+export function getSorobanServer(network?: string): SorobanRpc.Server {
+  const url = getRpcUrl(network);
+  let server = serverCache.get(url);
+  if (!server) {
+    server = new SorobanRpc.Server(url, { allowHttp: false });
+    serverCache.set(url, server);
+  }
+  return server;
+}
+
+/** Exposed for testing — clears the singleton cache. */
+export function _resetSorobanServerCache(): void {
+  serverCache.clear();
 }
