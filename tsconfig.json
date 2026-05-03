@@ -14,6 +14,11 @@
     "resolveJsonModule": true,
     "allowJs": true
   },
-  "include": ["src/**/*", "tests/**/*"],
+  "include": [
+    "src/**/*",
+    "tests/**/*",
+    "tools/account_merge.ts",
+    "tools/account_merge.test.ts"
+  ],
   "exclude": ["node_modules", "dist"]
 }

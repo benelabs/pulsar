@@ -4,11 +4,18 @@
  */
 
 import { describe, it, expect } from "vitest";
-
+import { z } from "zod";
+import {
+  StellarPublicKeySchema,
+  ContractIdSchema,
+  XdrBase64Schema,
+  NetworkSchema,
+} from "./index.js";
 import {
   GetAccountBalanceInputSchema,
   SubmitTransactionInputSchema,
   ContractReadInputSchema,
+  BuildTransactionInputSchema,
 } from "./tools.js";
 
 // ============================================================================
@@ -360,14 +367,6 @@ describe("ContractReadInputSchema", () => {
       contract_id: validContractId,
       method: "get_value",
       args: {},
-    };
-    const result = ContractReadInputSchema.safeParse(input);
-    expect(result.success).toBe(true);
-  });
-
-  it("accepts args with various value types", () => {
-    const input = {
-      contract_id: validContractId,
       method: "complex_method",
       args: {
         string_arg: "value",
@@ -380,5 +379,600 @@ describe("ContractReadInputSchema", () => {
     };
     const result = ContractReadInputSchema.safeParse(input);
     expect(result.success).toBe(true);
+  });
+});
+
+// ============================================================================
+// BuildTransactionInputSchema
+// ============================================================================
+
+describe("BuildTransactionInputSchema", () => {
+  const validSourceAccount = "GD5DJOWB5G4H6H6H6H6H6H6H6H6H6H6H6H6H6H6H6H6H6H6H6H6H6H6";
+
+  describe("Basic Validation", () => {
+    it("accepts minimal input with payment operation", () => {
+      const input = {
+        source_account: validSourceAccount,
+        operations: [
+          {
+            type: "payment",
+            destination: validSourceAccount,
+            amount: 100,
+          },
+        ],
+      };
+      const result = BuildTransactionInputSchema.safeParse(input);
+      expect(result.success).toBe(true);
+    });
+
+    it("rejects missing source_account", () => {
+      const input = {
+        operations: [
+          {
+            type: "payment",
+            destination: validSourceAccount,
+            amount: 100,
+          },
+        ],
+      };
+      const result = BuildTransactionInputSchema.safeParse(input);
+      expect(result.success).toBe(false);
+    });
+
+    it("rejects empty operations array", () => {
+      const input = {
+        source_account: validSourceAccount,
+        operations: [],
+      };
+      const result = BuildTransactionInputSchema.safeParse(input);
+      expect(result.success).toBe(false);
+    });
+
+    it("accepts optional network override", () => {
+      const input = {
+        source_account: validSourceAccount,
+        operations: [
+          {
+            type: "payment",
+            destination: validSourceAccount,
+            amount: 100,
+          },
+        ],
+        network: "mainnet",
+      };
+      const result = BuildTransactionInputSchema.safeParse(input);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.network).toBe("mainnet");
+      }
+    });
+
+    it("accepts optional fee", () => {
+      const input = {
+        source_account: validSourceAccount,
+        operations: [
+          {
+            type: "payment",
+            destination: validSourceAccount,
+            amount: 100,
+          },
+        ],
+        fee: 50000,
+      };
+      const result = BuildTransactionInputSchema.safeParse(input);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.fee).toBe(50000);
+      }
+    });
+
+    it("accepts optional timeout", () => {
+      const input = {
+        source_account: validSourceAccount,
+        operations: [
+          {
+            type: "payment",
+            destination: validSourceAccount,
+            amount: 100,
+          },
+        ],
+        timeout: 60,
+      };
+      const result = BuildTransactionInputSchema.safeParse(input);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.timeout).toBe(60);
+      }
+    });
+  });
+
+  describe("Payment Operations", () => {
+    it("accepts native XLM payment", () => {
+      const input = {
+        source_account: validSourceAccount,
+        operations: [
+          {
+            type: "payment",
+            destination: validSourceAccount,
+            amount: 100,
+          },
+        ],
+      };
+      const result = BuildTransactionInputSchema.safeParse(input);
+      expect(result.success).toBe(true);
+    });
+
+    it("accepts asset payment with issuer", () => {
+      const input = {
+        source_account: validSourceAccount,
+        operations: [
+          {
+            type: "payment",
+            destination: validSourceAccount,
+            amount: 100,
+            asset_code: "USDC",
+            asset_issuer: validSourceAccount,
+          },
+        ],
+      };
+      const result = BuildTransactionInputSchema.safeParse(input);
+      expect(result.success).toBe(true);
+    });
+
+    it("rejects payment with negative amount", () => {
+      const input = {
+        source_account: validSourceAccount,
+        operations: [
+          {
+            type: "payment",
+            destination: validSourceAccount,
+            amount: -100,
+          },
+        ],
+      };
+      const result = BuildTransactionInputSchema.safeParse(input);
+      expect(result.success).toBe(false);
+    });
+
+    it("rejects payment with zero amount", () => {
+      const input = {
+        source_account: validSourceAccount,
+        operations: [
+          {
+            type: "payment",
+            destination: validSourceAccount,
+            amount: 0,
+          },
+        ],
+      };
+      const result = BuildTransactionInputSchema.safeParse(input);
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe("Change Trust Operations", () => {
+    it("accepts change trust operation", () => {
+      const input = {
+        source_account: validSourceAccount,
+        operations: [
+          {
+            type: "change_trust",
+            asset_code: "USDC",
+            asset_issuer: validSourceAccount,
+          },
+        ],
+      };
+      const result = BuildTransactionInputSchema.safeParse(input);
+      expect(result.success).toBe(true);
+    });
+
+    it("accepts change trust with limit", () => {
+      const input = {
+        source_account: validSourceAccount,
+        operations: [
+          {
+            type: "change_trust",
+            asset_code: "USDC",
+            asset_issuer: validSourceAccount,
+            limit: "1000000",
+          },
+        ],
+      };
+      const result = BuildTransactionInputSchema.safeParse(input);
+      expect(result.success).toBe(true);
+    });
+
+    it("rejects change trust without asset_code", () => {
+      const input = {
+        source_account: validSourceAccount,
+        operations: [
+          {
+            type: "change_trust",
+            asset_issuer: validSourceAccount,
+          },
+        ],
+      };
+      const result = BuildTransactionInputSchema.safeParse(input);
+      expect(result.success).toBe(false);
+    });
+
+    it("rejects change trust without asset_issuer", () => {
+      const input = {
+        source_account: validSourceAccount,
+        operations: [
+          {
+            type: "change_trust",
+            asset_code: "USDC",
+          },
+        ],
+      };
+      const result = BuildTransactionInputSchema.safeParse(input);
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe("Manage Data Operations", () => {
+    it("accepts manage data with string value", () => {
+      const input = {
+        source_account: validSourceAccount,
+        operations: [
+          {
+            type: "manage_data",
+            name: "test_key",
+            value: "test_value",
+          },
+        ],
+      };
+      const result = BuildTransactionInputSchema.safeParse(input);
+      expect(result.success).toBe(true);
+    });
+
+    it("accepts manage data with object value", () => {
+      const input = {
+        source_account: validSourceAccount,
+        operations: [
+          {
+            type: "manage_data",
+            name: "test_key",
+            value: { nested: "value" },
+          },
+        ],
+      };
+      const result = BuildTransactionInputSchema.safeParse(input);
+      expect(result.success).toBe(true);
+    });
+
+    it("accepts manage data without value (clear operation)", () => {
+      const input = {
+        source_account: validSourceAccount,
+        operations: [
+          {
+            type: "manage_data",
+            name: "test_key",
+          },
+        ],
+      };
+      const result = BuildTransactionInputSchema.safeParse(input);
+      expect(result.success).toBe(true);
+    });
+
+    it("rejects manage data without name", () => {
+      const input = {
+        source_account: validSourceAccount,
+        operations: [
+          {
+            type: "manage_data",
+            value: "test_value",
+          },
+        ],
+      };
+      const result = BuildTransactionInputSchema.safeParse(input);
+      expect(result.success).toBe(false);
+    });
+
+    it("rejects manage data with empty name", () => {
+      const input = {
+        source_account: validSourceAccount,
+        operations: [
+          {
+            type: "manage_data",
+            name: "",
+          },
+        ],
+      };
+      const result = BuildTransactionInputSchema.safeParse(input);
+      expect(result.success).toBe(false);
+    });
+
+    it("rejects manage data with name too long", () => {
+      const input = {
+        source_account: validSourceAccount,
+        operations: [
+          {
+            type: "manage_data",
+            name: "a".repeat(65), // 65 bytes, max is 64
+          },
+        ],
+      };
+      const result = BuildTransactionInputSchema.safeParse(input);
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe("Set Options Operations", () => {
+    it("accepts minimal set options", () => {
+      const input = {
+        source_account: validSourceAccount,
+        operations: [
+          {
+            type: "set_options",
+          },
+        ],
+      };
+      const result = BuildTransactionInputSchema.safeParse(input);
+      expect(result.success).toBe(true);
+    });
+
+    it("accepts set options with all fields", () => {
+      const input = {
+        source_account: validSourceAccount,
+        operations: [
+          {
+            type: "set_options",
+            inflation_destination: validSourceAccount,
+            clear_flags: 1,
+            set_flags: 2,
+            master_weight: 1,
+            low_threshold: 2,
+            med_threshold: 3,
+            high_threshold: 4,
+            home_domain: "example.com",
+            signer_address: validSourceAccount,
+            signer_type: "ed25519_public_key",
+            signer_weight: 1,
+          },
+        ],
+      };
+      const result = BuildTransactionInputSchema.safeParse(input);
+      expect(result.success).toBe(true);
+    });
+
+    it("rejects set options with invalid signer_type", () => {
+      const input = {
+        source_account: validSourceAccount,
+        operations: [
+          {
+            type: "set_options",
+            signer_address: validSourceAccount,
+            signer_type: "invalid_type",
+            signer_weight: 1,
+          },
+        ],
+      };
+      const result = BuildTransactionInputSchema.safeParse(input);
+      expect(result.success).toBe(false);
+    });
+
+    it("rejects set options with clear_flags out of range", () => {
+      const input = {
+        source_account: validSourceAccount,
+        operations: [
+          {
+            type: "set_options",
+            clear_flags: 8, // max is 7
+          },
+        ],
+      };
+      const result = BuildTransactionInputSchema.safeParse(input);
+      expect(result.success).toBe(false);
+    });
+
+    it("rejects set options with home_domain too long", () => {
+      const input = {
+        source_account: validSourceAccount,
+        operations: [
+          {
+            type: "set_options",
+            home_domain: "a".repeat(33), // 33 chars, max is 32
+          },
+        ],
+      };
+      const result = BuildTransactionInputSchema.safeParse(input);
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe("Account Merge Operations", () => {
+    it("accepts account merge operation", () => {
+      const input = {
+        source_account: validSourceAccount,
+        operations: [
+          {
+            type: "account_merge",
+            destination: validSourceAccount,
+          },
+        ],
+      };
+      const result = BuildTransactionInputSchema.safeParse(input);
+      expect(result.success).toBe(true);
+    });
+
+    it("rejects account merge without destination", () => {
+      const input = {
+        source_account: validSourceAccount,
+        operations: [
+          {
+            type: "account_merge",
+          },
+        ],
+      };
+      const result = BuildTransactionInputSchema.safeParse(input);
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe("Create Account Operations", () => {
+    it("accepts create account operation", () => {
+      const input = {
+        source_account: validSourceAccount,
+        operations: [
+          {
+            type: "create_account",
+            destination: validSourceAccount,
+            starting_balance: 1.5,
+          },
+        ],
+      };
+      const result = BuildTransactionInputSchema.safeParse(input);
+      expect(result.success).toBe(true);
+    });
+
+    it("rejects create account without destination", () => {
+      const input = {
+        source_account: validSourceAccount,
+        operations: [
+          {
+            type: "create_account",
+            starting_balance: 2,
+          },
+        ],
+      };
+      const result = BuildTransactionInputSchema.safeParse(input);
+      expect(result.success).toBe(false);
+    });
+
+    it("rejects create account without starting_balance", () => {
+      const input = {
+        source_account: validSourceAccount,
+        operations: [
+          {
+            type: "create_account",
+            destination: validSourceAccount,
+          },
+        ],
+      };
+      const result = BuildTransactionInputSchema.safeParse(input);
+      expect(result.success).toBe(false);
+    });
+
+    it("rejects create account with insufficient balance", () => {
+      const input = {
+        source_account: validSourceAccount,
+        operations: [
+          {
+            type: "create_account",
+            destination: validSourceAccount,
+            starting_balance: 0.5,
+          },
+        ],
+      };
+      const result = BuildTransactionInputSchema.safeParse(input);
+      expect(result.success).toBe(false);
+    });
+
+    it("rejects create account with negative balance", () => {
+      const input = {
+        source_account: validSourceAccount,
+        operations: [
+          {
+            type: "create_account",
+            destination: validSourceAccount,
+            starting_balance: -1,
+          },
+        ],
+      };
+      const result = BuildTransactionInputSchema.safeParse(input);
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe("Multiple Operations", () => {
+    it("accepts multiple operations", () => {
+      const input = {
+        source_account: validSourceAccount,
+        operations: [
+          {
+            type: "payment",
+            destination: validSourceAccount,
+            amount: 100,
+          },
+          {
+            type: "change_trust",
+            asset_code: "USDC",
+            asset_issuer: validSourceAccount,
+          },
+        ],
+      };
+      const result = BuildTransactionInputSchema.safeParse(input);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.operations).toHaveLength(2);
+      }
+    });
+  });
+
+  describe("Fee and Timeout Validation", () => {
+    it("rejects fee below minimum", () => {
+      const input = {
+        source_account: validSourceAccount,
+        operations: [
+          {
+            type: "payment",
+            destination: validSourceAccount,
+            amount: 100,
+          },
+        ],
+        fee: 99, // minimum is 100
+      };
+      const result = BuildTransactionInputSchema.safeParse(input);
+      expect(result.success).toBe(false);
+    });
+
+    it("rejects negative timeout", () => {
+      const input = {
+        source_account: validSourceAccount,
+        operations: [
+          {
+            type: "payment",
+            destination: validSourceAccount,
+            amount: 100,
+          },
+        ],
+        timeout: -1,
+      };
+      const result = BuildTransactionInputSchema.safeParse(input);
+      expect(result.success).toBe(false);
+    });
+
+    it("rejects timeout above maximum", () => {
+      const input = {
+        source_account: validSourceAccount,
+        operations: [
+          {
+            type: "payment",
+            destination: validSourceAccount,
+            amount: 100,
+          },
+        ],
+        timeout: 65536, // max is 65535
+      };
+      const result = BuildTransactionInputSchema.safeParse(input);
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe("Invalid Operation Types", () => {
+    it("rejects unknown operation type", () => {
+      const input = {
+        source_account: validSourceAccount,
+        operations: [
+          {
+            type: "unknown_operation" as any,
+          },
+        ],
+      };
+      const result = BuildTransactionInputSchema.safeParse(input);
+      expect(result.success).toBe(false);
+    });
   });
 });
