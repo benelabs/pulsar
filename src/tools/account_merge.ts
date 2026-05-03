@@ -1,7 +1,14 @@
-import { Server, TransactionBuilder, Networks, Account, Operation, Keypair, BASE_FEE } from 'stellar-sdk';
-import { getNetworkPassphrase } from '../config';
-import { submitTransaction } from './submit_transaction';
-import { logger } from '../logger';
+import {
+  Horizon,
+  TransactionBuilder,
+  Operation,
+  Keypair,
+  BASE_FEE,
+  Networks,
+} from '@stellar/stellar-sdk';
+
+import { config } from '../config.js';
+import logger from '../logger.js';
 
 export interface AccountMergeParams {
   sourceSecret: string;
@@ -23,14 +30,21 @@ export interface AccountMergeResult {
 export async function mergeAccount(params: AccountMergeParams): Promise<AccountMergeResult> {
   const { sourceSecret, destination, horizonUrl } = params;
   try {
-    const server = new Server(horizonUrl);
+    const server = new Horizon.Server(horizonUrl);
     const sourceKeypair = Keypair.fromSecret(sourceSecret);
     const sourcePublic = sourceKeypair.publicKey();
     const account = await server.loadAccount(sourcePublic);
-    const networkPassphrase = getNetworkPassphrase();
+
+    // Determine network passphrase
+    let networkPassphrase = Networks.TESTNET;
+    if (config.stellarNetwork === 'mainnet') {
+      networkPassphrase = Networks.PUBLIC;
+    } else if (config.stellarNetwork === 'futurenet') {
+      networkPassphrase = Networks.FUTURENET;
+    }
 
     const tx = new TransactionBuilder(account, {
-      fee: BASE_FEE,
+      fee: BASE_FEE.toString(),
       networkPassphrase,
     })
       .addOperation(Operation.accountMerge({ destination }))
@@ -39,16 +53,12 @@ export async function mergeAccount(params: AccountMergeParams): Promise<AccountM
 
     tx.sign(sourceKeypair);
 
-    const result = await submitTransaction({ server, transaction: tx });
-    if (result.success) {
-      logger.info(`Account merge successful: ${result.txHash}`);
-      return { success: true, txHash: result.txHash };
-    } else {
-      logger.error(`Account merge failed: ${result.error}`);
-      return { success: false, error: result.error };
-    }
-  } catch (error: any) {
-    logger.error(`Account merge exception: ${error.message}`);
-    return { success: false, error: error.message };
+    const result = await server.submitTransaction(tx);
+    logger.info(`Account merge successful: ${result.hash}`);
+    return { success: true, txHash: result.hash };
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error(`Account merge exception: ${errorMessage}`);
+    return { success: false, error: errorMessage };
   }
 }

@@ -14,9 +14,11 @@
     "resolveJsonModule": true,
     "allowJs": true
   },
+  "include": ["src/**/*", "tests/**/*", "vitest.config.ts"],
   "include": [
     "src/**/*",
     "tests/**/*",
+    "vitest.config.ts",
     "tools/account_merge.ts",
     "tools/account_merge.test.ts"
   ],
