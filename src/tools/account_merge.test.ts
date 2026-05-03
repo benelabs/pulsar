@@ -1,9 +1,14 @@
-import { mergeAccount, AccountMergeParams } from './account_merge';
-import { logger } from '../logger';
+import { describe, it, expect } from 'vitest';
+
+import logger from '../logger.js';
+
+import { mergeAccount, AccountMergeParams } from './account_merge.js';
 
 describe('Account Merge Helper Tool', () => {
-  const validSecret = process.env.TEST_SOURCE_SECRET || 'SXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX';
-  const validDestination = process.env.TEST_DESTINATION || 'GXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX';
+  const validSecret =
+    process.env.TEST_SOURCE_SECRET || 'SXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX';
+  const validDestination =
+    process.env.TEST_DESTINATION || 'GXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX';
   const horizonUrl = process.env.TEST_HORIZON_URL || 'https://horizon-testnet.stellar.org';
 
   it('should merge account successfully with valid params', async () => {

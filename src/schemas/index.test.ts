@@ -3,7 +3,7 @@
  * 100% coverage of all validators: public key, secret key, contract ID, XDR, network.
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from 'vitest';
 
 import {
   StellarPublicKeySchema,
@@ -12,19 +12,19 @@ import {
   XdrBase64Schema,
   NetworkSchema,
   AccountBalanceQuerySchema,
-} from "./index.js";
+} from './index.js';
 
 // ============================================================================
 // StellarPublicKeySchema
 // ============================================================================
 
-describe("StellarPublicKeySchema", () => {
+describe('StellarPublicKeySchema', () => {
   // ✅ Valid cases
-  it("accepts valid Stellar public keys", () => {
+  it('accepts valid Stellar public keys', () => {
     const validKeys = [
-      "GABCDEFGHJKMNPQRSTUVWXYZ234567ABCDEFGHJKMNPQRSTUVWXYZ234", // valid format
-      "GBTZKYQRSVWXYZABTZKYQRSVWXYZABTZKYQRSVWXYZABTZKYQRSVWXYZ", // valid format
-      "GZCFGHJKMNPQRSTUVWXYZABCDEFGHJKMNPQRSTUVWXYZABCDEFGHJ234", // valid format
+      'GABCDEFGHJKMNPQRSTUVWXYZ234567ABCDEFGHJKMNPQRSTUVWXYZ234', // valid format
+      'GBTZKYQRSVWXYZABTZKYQRSVWXYZABTZKYQRSVWXYZABTZKYQRSVWXYZ', // valid format
+      'GZCFGHJKMNPQRSTUVWXYZABCDEFGHJKMNPQRSTUVWXYZABCDEFGHJ234', // valid format
     ];
 
     validKeys.forEach((key) => {
@@ -36,7 +36,7 @@ describe("StellarPublicKeySchema", () => {
 
   it("rejects keys that don't start with G", () => {
     const result = StellarPublicKeySchema.safeParse(
-      "CABCDEFGHJKMNPQRSTUVWXYZ234567ABCDEFGHJKMNPQRSTUVWXYZ234",
+      'CABCDEFGHJKMNPQRSTUVWXYZ234567ABCDEFGHJKMNPQRSTUVWXYZ234'
     );
     expect(result.success).toBe(false);
     if (!result.success) {
@@ -44,44 +44,44 @@ describe("StellarPublicKeySchema", () => {
     }
   });
 
-  it("rejects keys shorter than 56 characters", () => {
+  it('rejects keys shorter than 56 characters', () => {
     const result = StellarPublicKeySchema.safeParse(
-      "GABCDEFGHJKMNPQRSTUVWXYZ234567ABCDEFGHJKMNPQRSTUVWXY",
+      'GABCDEFGHJKMNPQRSTUVWXYZ234567ABCDEFGHJKMNPQRSTUVWXY'
     );
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.issues[0].message).toContain("exactly 56 characters");
+      expect(result.error.issues[0].message).toContain('exactly 56 characters');
     }
   });
 
-  it("rejects keys longer than 56 characters", () => {
+  it('rejects keys longer than 56 characters', () => {
     const result = StellarPublicKeySchema.safeParse(
-      "GABCDEFGHJKMNPQRSTUVWXYZ234567ABCDEFGHJKMNPQRSTUVWXYZ234XX",
+      'GABCDEFGHJKMNPQRSTUVWXYZ234567ABCDEFGHJKMNPQRSTUVWXYZ234XX'
     );
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.issues[0].message).toContain("exactly 56 characters");
+      expect(result.error.issues[0].message).toContain('exactly 56 characters');
     }
   });
 
-  it("rejects keys with non-base32 characters", () => {
+  it('rejects keys with non-base32 characters', () => {
     // Contains '1' which is not base32
     const result = StellarPublicKeySchema.safeParse(
-      "GABCDEFGHJKMNPQRSTUVWXYZ234567ABCDEFGHJKMNPQRSTUVWXYZ1X1", // 1 is invalid
+      'GABCDEFGHJKMNPQRSTUVWXYZ234567ABCDEFGHJKMNPQRSTUVWXYZ1X1' // 1 is invalid
     );
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.issues[0].message).toContain("base32");
+      expect(result.error.issues[0].message).toContain('base32');
     }
   });
 
-  it("rejects keys with lowercase characters", () => {
+  it('rejects keys with lowercase characters', () => {
     const result = StellarPublicKeySchema.safeParse(
-      "GabCDEFGHJKMNPQRSTUVWXYZ234567ABCDEFGHJKMNPQRSTUVWXYZ234",
+      'GabCDEFGHJKMNPQRSTUVWXYZ234567ABCDEFGHJKMNPQRSTUVWXYZ234'
     );
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.issues[0].message).toContain("base32");
+      expect(result.error.issues[0].message).toContain('base32');
     }
   });
 });
@@ -90,12 +90,12 @@ describe("StellarPublicKeySchema", () => {
 // StellarSecretKeySchema
 // ============================================================================
 
-describe("StellarSecretKeySchema", () => {
+describe('StellarSecretKeySchema', () => {
   // ✅ Valid cases
-  it("accepts valid Stellar secret keys", () => {
+  it('accepts valid Stellar secret keys', () => {
     const validKeys = [
-      "SBZVMB74Z76QZ3ZVU4Z7YVYVYJ5YP5VCNNQWYVEUNFY66Z7LSYL7YVVU", // not real, but valid format
-      "SDZSTFXVCDTUJ76ZAV2HA72KYQMQPQH3S7WVMSZOHMQG4G4MWCZJ6FG7", // valid format
+      'SBZVMB74Z76QZ3ZVU4Z7YVYVYJ5YP5VCNNQWYVEUNFY66Z7LSYL7YVVU', // not real, but valid format
+      'SDZSTFXVCDTUJ76ZAV2HA72KYQMQPQH3S7WVMSZOHMQG4G4MWCZJ6FG7', // valid format
     ];
 
     validKeys.forEach((key) => {
@@ -107,7 +107,7 @@ describe("StellarSecretKeySchema", () => {
 
   it("rejects keys that don't start with S", () => {
     const result = StellarSecretKeySchema.safeParse(
-      "GDZSTFXVCDTUJ76ZAV2HA72KYQMQPQH3S7WVMSZOHMQG4G4MWCZJ6FG7", // starts with G
+      'GDZSTFXVCDTUJ76ZAV2HA72KYQMQPQH3S7WVMSZOHMQG4G4MWCZJ6FG7' // starts with G
     );
     expect(result.success).toBe(false);
     if (!result.success) {
@@ -115,39 +115,38 @@ describe("StellarSecretKeySchema", () => {
     }
   });
 
-  it("rejects keys shorter than 56 characters", () => {
+  it('rejects keys shorter than 56 characters', () => {
     const result = StellarSecretKeySchema.safeParse(
-      "SDZSTFXVCDTUJ76ZAV2HA72KYQMQPQH3S7WVMSZOHMQG4M",
+      'SDZSTFXVCDTUJ76ZAV2HA72KYQMQPQH3S7WVMSZOHMQG4M'
     );
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.issues[0].message).toContain("exactly 56 characters");
+      expect(result.error.issues[0].message).toContain('exactly 56 characters');
     }
   });
 
-  it("rejects keys longer than 56 characters", () => {
+  it('rejects keys longer than 56 characters', () => {
     const result = StellarSecretKeySchema.safeParse(
-      "SDZSTFXVCDTUJ76ZAV2HA72KYQMQPQH3S7WVMSZOHMQG4G4MWCZJ6FG7XX",
+      'SDZSTFXVCDTUJ76ZAV2HA72KYQMQPQH3S7WVMSZOHMQG4G4MWCZJ6FG7XX'
     );
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.issues[0].message).toContain("exactly 56 characters");
+      expect(result.error.issues[0].message).toContain('exactly 56 characters');
     }
   });
 
-  it("rejects keys with non-base32 characters", () => {
+  it('rejects keys with non-base32 characters', () => {
     const result = StellarSecretKeySchema.safeParse(
-      "SDZSTFXVCDTUJ76ZAV2HA72KYQMQPQH3S7WVMSZOHMQG4G4MWCZJ6FG1", // 1 is invalid
+      'SDZSTFXVCDTUJ76ZAV2HA72KYQMQPQH3S7WVMSZOHMQG4G4MWCZJ6FG1' // 1 is invalid
     );
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.issues[0].message).toContain("base32");
+      expect(result.error.issues[0].message).toContain('base32');
     }
   });
 
-  it("never exposes secret keys in error messages", () => {
-    const secretKey =
-      "SDZSTFXVCDTUJ76ZAV2HA72KYQMQPQH3S7WVMSZOHMQG4G4MWCZJ6FG1";
+  it('never exposes secret keys in error messages', () => {
+    const secretKey = 'SDZSTFXVCDTUJ76ZAV2HA72KYQMQPQH3S7WVMSZOHMQG4G4MWCZJ6FG1';
     const result = StellarSecretKeySchema.safeParse(secretKey);
     expect(result.success).toBe(false);
 
@@ -161,11 +160,11 @@ describe("StellarSecretKeySchema", () => {
 // ContractIdSchema
 // ============================================================================
 
-describe("ContractIdSchema", () => {
-  it("accepts valid contract IDs", () => {
+describe('ContractIdSchema', () => {
+  it('accepts valid contract IDs', () => {
     const validIds = [
-      "CABCDEFGHJKMNPQRSTUVWXYZ234567ABCDEFGHJKMNPQRSTUVWXYZ234", // valid format (exactly 56 chars)
-      "CZBCDEFGHJKMNPQRSTUVWXYZABCDEFGHJKMNPQRSTUVWXYZABCDEFGHJ", // valid format (exactly 56 chars)
+      'CABCDEFGHJKMNPQRSTUVWXYZ234567ABCDEFGHJKMNPQRSTUVWXYZ234', // valid format (exactly 56 chars)
+      'CZBCDEFGHJKMNPQRSTUVWXYZABCDEFGHJKMNPQRSTUVWXYZABCDEFGHJ', // valid format (exactly 56 chars)
     ];
 
     validIds.forEach((id) => {
@@ -177,7 +176,7 @@ describe("ContractIdSchema", () => {
 
   it("rejects IDs that don't start with C", () => {
     const result = ContractIdSchema.safeParse(
-      "GABCDEFGHJKMNPQRSTUVWXYZ234567ABCDEFGHJKMNPQRSTUVWXYZ234",
+      'GABCDEFGHJKMNPQRSTUVWXYZ234567ABCDEFGHJKMNPQRSTUVWXYZ234'
     );
     expect(result.success).toBe(false);
     if (!result.success) {
@@ -185,33 +184,31 @@ describe("ContractIdSchema", () => {
     }
   });
 
-  it("rejects IDs shorter than 56 characters", () => {
-    const result = ContractIdSchema.safeParse(
-      "CDZST3XVCDTUJ76ZAV2HA72KYQMQPQH3S7WVMSZOHMQG4M",
-    );
+  it('rejects IDs shorter than 56 characters', () => {
+    const result = ContractIdSchema.safeParse('CDZST3XVCDTUJ76ZAV2HA72KYQMQPQH3S7WVMSZOHMQG4M');
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.issues[0].message).toContain("exactly 56 characters");
+      expect(result.error.issues[0].message).toContain('exactly 56 characters');
     }
   });
 
-  it("rejects IDs longer than 56 characters", () => {
+  it('rejects IDs longer than 56 characters', () => {
     const result = ContractIdSchema.safeParse(
-      "CABCDEFGHJKMNPQRSTUVWXYZ234567ABCDEFGHJKMNPQRSTUVWXYZ234XX",
+      'CABCDEFGHJKMNPQRSTUVWXYZ234567ABCDEFGHJKMNPQRSTUVWXYZ234XX'
     );
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.issues[0].message).toContain("exactly 56 characters");
+      expect(result.error.issues[0].message).toContain('exactly 56 characters');
     }
   });
 
-  it("rejects IDs with non-base32 characters", () => {
+  it('rejects IDs with non-base32 characters', () => {
     const result = ContractIdSchema.safeParse(
-      "CABCDEFGHJKMNPQRSTUVWXYZ234567ABCDEFGHJKMNPQRSTUVWXYZ1X1",
+      'CABCDEFGHJKMNPQRSTUVWXYZ234567ABCDEFGHJKMNPQRSTUVWXYZ1X1'
     );
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.issues[0].message).toContain("base32");
+      expect(result.error.issues[0].message).toContain('base32');
     }
   });
 });
@@ -220,12 +217,12 @@ describe("ContractIdSchema", () => {
 // XdrBase64Schema
 // ============================================================================
 
-describe("XdrBase64Schema", () => {
-  it("accepts valid base64-encoded XDR", () => {
+describe('XdrBase64Schema', () => {
+  it('accepts valid base64-encoded XDR', () => {
     const validXdrs = [
-      "AAAAAgAAAABvalidXDRbase64==",
-      "AAAAAAAAGGoAAAAGAAAAAAAAAAA=",
-      "YWJjZGVmZ2hpamtsbW5vcA==", // "abcdefghijklmnop"
+      'AAAAAgAAAABvalidXDRbase64==',
+      'AAAAAAAAGGoAAAAGAAAAAAAAAAA=',
+      'YWJjZGVmZ2hpamtsbW5vcA==', // "abcdefghijklmnop"
     ];
 
     validXdrs.forEach((xdr) => {
@@ -235,35 +232,35 @@ describe("XdrBase64Schema", () => {
     });
   });
 
-  it("accepts base64 without padding", () => {
-    const result = XdrBase64Schema.safeParse("YWJjZGVmZ2hpamtsbW5vcA");
+  it('accepts base64 without padding', () => {
+    const result = XdrBase64Schema.safeParse('YWJjZGVmZ2hpamtsbW5vcA');
     expect(result.success).toBe(true);
   });
 
-  it("rejects empty strings", () => {
-    const result = XdrBase64Schema.safeParse("");
+  it('rejects empty strings', () => {
+    const result = XdrBase64Schema.safeParse('');
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.issues[0].message).toContain("empty");
+      expect(result.error.issues[0].message).toContain('empty');
     }
   });
 
-  it("rejects whitespace-only strings", () => {
-    const result = XdrBase64Schema.safeParse("   ");
+  it('rejects whitespace-only strings', () => {
+    const result = XdrBase64Schema.safeParse('   ');
     expect(result.success).toBe(false);
   });
 
-  it("rejects invalid base64 characters", () => {
+  it('rejects invalid base64 characters', () => {
     // Contains !@#$ which are not valid base64
-    const result = XdrBase64Schema.safeParse("invalid!@#$base64");
+    const result = XdrBase64Schema.safeParse('invalid!@#$base64');
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.issues[0].message).toContain("valid base64");
+      expect(result.error.issues[0].message).toContain('valid base64');
     }
   });
 
-  it("rejects XDR with invalid padding", () => {
-    const result = XdrBase64Schema.safeParse("YWJj==="); // too many = signs
+  it('rejects XDR with invalid padding', () => {
+    const result = XdrBase64Schema.safeParse('YWJj==='); // too many = signs
     expect(result.success).toBe(false);
   });
 });
@@ -272,42 +269,42 @@ describe("XdrBase64Schema", () => {
 // NetworkSchema
 // ============================================================================
 
-describe("NetworkSchema", () => {
-  it("accepts mainnet", () => {
-    const result = NetworkSchema.safeParse("mainnet");
+describe('NetworkSchema', () => {
+  it('accepts mainnet', () => {
+    const result = NetworkSchema.safeParse('mainnet');
     expect(result.success).toBe(true);
-    expect(result.data).toBe("mainnet");
+    expect(result.data).toBe('mainnet');
   });
 
-  it("accepts testnet", () => {
-    const result = NetworkSchema.safeParse("testnet");
+  it('accepts testnet', () => {
+    const result = NetworkSchema.safeParse('testnet');
     expect(result.success).toBe(true);
-    expect(result.data).toBe("testnet");
+    expect(result.data).toBe('testnet');
   });
 
-  it("accepts futurenet", () => {
-    const result = NetworkSchema.safeParse("futurenet");
+  it('accepts futurenet', () => {
+    const result = NetworkSchema.safeParse('futurenet');
     expect(result.success).toBe(true);
-    expect(result.data).toBe("futurenet");
+    expect(result.data).toBe('futurenet');
   });
 
-  it("accepts custom", () => {
-    const result = NetworkSchema.safeParse("custom");
+  it('accepts custom', () => {
+    const result = NetworkSchema.safeParse('custom');
     expect(result.success).toBe(true);
-    expect(result.data).toBe("custom");
+    expect(result.data).toBe('custom');
   });
 
-  it("rejects unknown networks", () => {
-    const result = NetworkSchema.safeParse("universe");
+  it('rejects unknown networks', () => {
+    const result = NetworkSchema.safeParse('universe');
     expect(result.success).toBe(false);
   });
 
-  it("rejects empty strings", () => {
-    const result = NetworkSchema.safeParse("");
+  it('rejects empty strings', () => {
+    const result = NetworkSchema.safeParse('');
     expect(result.success).toBe(false);
   });
 
-  it("rejects null", () => {
+  it('rejects null', () => {
     const result = NetworkSchema.safeParse(null);
     expect(result.success).toBe(false);
   });
@@ -317,33 +314,33 @@ describe("NetworkSchema", () => {
 // AccountBalanceQuerySchema (composite schema)
 // ============================================================================
 
-describe("AccountBalanceQuerySchema", () => {
-  it("accepts valid account balance query", () => {
+describe('AccountBalanceQuerySchema', () => {
+  it('accepts valid account balance query', () => {
     const query = {
-      account_id: "GDZSTFXVCDTUJ76ZAV2HA72KYQMQPQH3S7WVMSZOHMQG4G4MWCZJ6FG7",
+      account_id: 'GDZSTFXVCDTUJ76ZAV2HA72KYQMQPQH3S7WVMSZOHMQG4G4MWCZJ6FG7',
     };
     const result = AccountBalanceQuerySchema.safeParse(query);
     expect(result.success).toBe(true);
   });
 
-  it("rejects missing account_id", () => {
+  it('rejects missing account_id', () => {
     const query = {};
     const result = AccountBalanceQuerySchema.safeParse(query);
     expect(result.success).toBe(false);
   });
 
-  it("rejects invalid account_id", () => {
+  it('rejects invalid account_id', () => {
     const query = {
-      account_id: "invalid_key",
+      account_id: 'invalid_key',
     };
     const result = AccountBalanceQuerySchema.safeParse(query);
     expect(result.success).toBe(false);
   });
 
-  it("accepts extra fields and strips them", () => {
+  it('accepts extra fields and strips them', () => {
     const query = {
-      account_id: "GDZSTFXVCDTUJ76ZAV2HA72KYQMQPQH3S7WVMSZOHMQG4G4MWCZJ6FG7",
-      extra_field: "ignored",
+      account_id: 'GDZSTFXVCDTUJ76ZAV2HA72KYQMQPQH3S7WVMSZOHMQG4G4MWCZJ6FG7',
+      extra_field: 'ignored',
     };
     const result = AccountBalanceQuerySchema.safeParse(query);
     expect(result.success).toBe(true);

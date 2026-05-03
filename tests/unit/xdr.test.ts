@@ -1,3 +1,7 @@
+import { spawn } from 'node:child_process';
+import { spawn } from 'child_process';
+import { gzipSync } from 'zlib';
+
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import { decodeLedgerEntry } from '../../src/services/xdr.js';
@@ -6,8 +10,6 @@ import { decodeLedgerEntry } from '../../src/services/xdr.js';
 vi.mock('child_process', () => ({
   spawn: vi.fn(),
 }));
-
-import { spawn } from 'child_process';
 
 // Mock config
 vi.mock('../../src/config.js', () => ({
@@ -78,7 +80,9 @@ describe('XDR Service', () => {
       const validXdr = 'AAAAAQ==';
       const decodedOutput = JSON.stringify({ account_id: 'GBBD...', balance: '1000' });
 
-      mockSpawn.mockReturnValue(createMockChildProcess(0, decodedOutput, '') as unknown as ReturnType<typeof spawn>);
+      mockSpawn.mockReturnValue(
+        createMockChildProcess(0, decodedOutput, '') as unknown as ReturnType<typeof spawn>
+      );
 
       const result = await decodeLedgerEntry(validXdr, 'account');
 
@@ -92,6 +96,7 @@ describe('XDR Service', () => {
         entry_type: 'account',
         decoded: { account_id: 'GBBD...', balance: '1000' },
         raw_xdr: validXdr,
+        compression: undefined,
       });
     });
 
@@ -99,7 +104,9 @@ describe('XDR Service', () => {
       const validXdr = 'AAAAAQ==';
       const errorOutput = 'Error: Invalid XDR format';
 
-      mockSpawn.mockReturnValue(createMockChildProcess(1, '', errorOutput) as unknown as ReturnType<typeof spawn>);
+      mockSpawn.mockReturnValue(
+        createMockChildProcess(1, '', errorOutput) as unknown as ReturnType<typeof spawn>
+      );
 
       const result = await decodeLedgerEntry(validXdr);
 
@@ -113,7 +120,9 @@ describe('XDR Service', () => {
       const validXdr = 'AAAAAQ==';
       const decodedOutput = JSON.stringify({ seq_num: '123456', balance: '1000' });
 
-      mockSpawn.mockReturnValue(createMockChildProcess(0, decodedOutput, '') as unknown as ReturnType<typeof spawn>);
+      mockSpawn.mockReturnValue(
+        createMockChildProcess(0, decodedOutput, '') as unknown as ReturnType<typeof spawn>
+      );
 
       const result = await decodeLedgerEntry(validXdr);
 
@@ -130,7 +139,9 @@ describe('XDR Service', () => {
         durability: 'persistent',
       });
 
-      mockSpawn.mockReturnValue(createMockChildProcess(0, decodedOutput, '') as unknown as ReturnType<typeof spawn>);
+      mockSpawn.mockReturnValue(
+        createMockChildProcess(0, decodedOutput, '') as unknown as ReturnType<typeof spawn>
+      );
 
       const result = await decodeLedgerEntry(validXdr);
 
@@ -152,6 +163,33 @@ describe('XDR Service', () => {
         error: 'spawn stellar ENOENT',
         code: 'UNKNOWN_ERROR',
       });
+    });
+
+    it('should decode compressed on-chain blob from configured field', async () => {
+      const validXdr = 'AAAAAQ==';
+      const compressed = gzipSync(Buffer.from('hello on chain', 'utf8')).toString('base64');
+      const decodedOutput = JSON.stringify({ val: { data: compressed } });
+
+      mockSpawn.mockReturnValue(
+        createMockChildProcess(0, decodedOutput, '') as unknown as ReturnType<typeof spawn>
+      );
+
+      const result = await decodeLedgerEntry(validXdr, 'contract_data', {
+        enabled: true,
+        algorithm: 'auto',
+        fields: ['val.data'],
+      });
+
+      if ('entry_type' in result) {
+        expect(result.compression?.decompressed_fields).toEqual([
+          {
+            path: 'val.data',
+            algorithm: 'gzip',
+            utf8: 'hello on chain',
+            byte_length: 14,
+          },
+        ]);
+      }
     });
   });
 });
