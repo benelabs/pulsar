@@ -1,4 +1,6 @@
 import { spawn } from 'node:child_process';
+import { spawn } from 'child_process';
+import { gzipSync } from 'zlib';
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
@@ -94,6 +96,7 @@ describe('XDR Service', () => {
         entry_type: 'account',
         decoded: { account_id: 'GBBD...', balance: '1000' },
         raw_xdr: validXdr,
+        compression: undefined,
       });
     });
 
@@ -160,6 +163,33 @@ describe('XDR Service', () => {
         error: 'spawn stellar ENOENT',
         code: 'UNKNOWN_ERROR',
       });
+    });
+
+    it('should decode compressed on-chain blob from configured field', async () => {
+      const validXdr = 'AAAAAQ==';
+      const compressed = gzipSync(Buffer.from('hello on chain', 'utf8')).toString('base64');
+      const decodedOutput = JSON.stringify({ val: { data: compressed } });
+
+      mockSpawn.mockReturnValue(
+        createMockChildProcess(0, decodedOutput, '') as unknown as ReturnType<typeof spawn>
+      );
+
+      const result = await decodeLedgerEntry(validXdr, 'contract_data', {
+        enabled: true,
+        algorithm: 'auto',
+        fields: ['val.data'],
+      });
+
+      if ('entry_type' in result) {
+        expect(result.compression?.decompressed_fields).toEqual([
+          {
+            path: 'val.data',
+            algorithm: 'gzip',
+            utf8: 'hello on chain',
+            byte_length: 14,
+          },
+        ]);
+      }
     });
   });
 });

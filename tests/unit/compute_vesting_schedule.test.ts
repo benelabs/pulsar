@@ -14,7 +14,7 @@ describe('computeVestingSchedule', () => {
       release_frequency_seconds: 2592000, // monthly
       beneficiary_type: 'team',
       current_timestamp: BASE_TIME + 1000, // 1000 seconds after start
-    })) as any;
+    })) as unknown as { [key: string]: any };
 
     expect(result.beneficiary_type).toBe('team');
     expect(result.total_amount).toBe('1000000.0000000');
@@ -33,11 +33,16 @@ describe('computeVestingSchedule', () => {
       release_frequency_seconds: 2592000, // monthly
       beneficiary_type: 'investor',
       current_timestamp: BASE_TIME + 31536000 + 5184000, // 1 year + 2 months
-    })) as any;
+    })) as unknown as { [key: string]: any };
 
     expect(result.released_amount).toBe('66666.6666666');
     expect(result.unreleased_amount).toBe('933333.3333334');
     expect(result.vesting_percentage).toBe(6.67);
+    expect(result.released_amount).toBe('54054.0540540');
+    expect(result.unreleased_amount).toBe('945945.9459460');
+    expect(result.released_amount).toBe('54054.0540541');
+    expect(result.unreleased_amount).toBe('945945.9459459');
+    expect(result.vesting_percentage).toBe(5.41);
     expect(result.schedule[0].released).toBe(true);
     expect(result.schedule[1].released).toBe(true);
     expect(result.schedule[2].released).toBe(false);
@@ -52,7 +57,7 @@ describe('computeVestingSchedule', () => {
       release_frequency_seconds: 3600, // hourly
       beneficiary_type: 'advisor',
       current_timestamp: BASE_TIME + 100000,
-    })) as any;
+    })) as unknown as { [key: string]: any };
 
     expect(result.released_amount).toBe('500000.0000000');
     expect(result.unreleased_amount).toBe('0.0000000');
@@ -70,7 +75,7 @@ describe('computeVestingSchedule', () => {
       release_frequency_seconds: 30, // every 30 seconds
       beneficiary_type: 'other',
       current_timestamp: BASE_TIME + 45,
-    })) as any;
+    })) as unknown as { [key: string]: any };
 
     expect(result.schedule).toHaveLength(4);
     expect(result.released_amount).toBe('300.0000000');
@@ -115,7 +120,7 @@ describe('computeVestingSchedule', () => {
       release_frequency_seconds: 21600, // every 6 hours
       beneficiary_type: 'investor',
       current_timestamp: BASE_TIME,
-    })) as any;
+    })) as unknown as { [key: string]: any };
 
     expect(result.start_date).toBe(new Date(BASE_TIME * 1000).toISOString());
     expect(result.cliff_date).toBe(new Date((BASE_TIME + 3600) * 1000).toISOString());
@@ -131,7 +136,7 @@ describe('computeVestingSchedule', () => {
       release_frequency_seconds: 25,
       beneficiary_type: 'team',
       current_timestamp: BASE_TIME + 30,
-    })) as any;
+    })) as unknown as { [key: string]: any };
 
     expect(result.next_release_date).toBe(result.schedule[1].release_date);
   });
@@ -145,7 +150,7 @@ describe('computeVestingSchedule', () => {
       release_frequency_seconds: 100,
       beneficiary_type: 'team',
       current_timestamp: BASE_TIME + 500,
-    })) as any;
+    })) as unknown as { [key: string]: any };
 
     const sum = result.schedule.reduce((acc: number, s: any) => acc + parseFloat(s.amount), 0);
     expect(sum).toBeCloseTo(1000, 5);

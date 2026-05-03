@@ -12,6 +12,14 @@ import { SubmitTransactionInputSchema } from '../schemas/tools.js';
 import type { McpToolHandler } from '../types.js';
 import logger from '../logger.js';
 import { PulsarNetworkError, PulsarValidationError } from '../errors.js';
+import { config } from "../config.js";
+import {
+  SubmitTransactionInputSchema,
+} from "../schemas/tools.js";
+import type { McpToolHandler } from "../types.js";
+import logger from "../logger.js";
+import { PulsarNetworkError, PulsarValidationError } from "../errors.js";
+import { getSorobanServer } from "../services/soroban-rpc.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -153,6 +161,8 @@ export const submitTransaction: McpToolHandler<typeof SubmitTransactionInputSche
   const rpcUrl = config.sorobanRpcUrl ?? resolveRpcUrl(network);
   const { rpc: SorobanRpc } = await import('@stellar/stellar-sdk');
   const rpcServer = new SorobanRpc.Server(rpcUrl, { allowHttp: false });
+  const { rpc: SorobanRpc } = await import("@stellar/stellar-sdk");
+  const rpcServer = getSorobanServer(network);
 
   const deadline = Date.now() + timeoutMs;
   const POLL_INTERVAL_MS = 1_500;
@@ -228,6 +238,9 @@ function resolveRpcUrl(network: string): string {
 }
 
 function extractDiagnosticEvents(txStatus: Record<string, unknown>): unknown[] | null {
+function extractDiagnosticEvents(
+  txStatus: Record<string, unknown>,
+): unknown[] | null {
   try {
     const events = (
       txStatus as {

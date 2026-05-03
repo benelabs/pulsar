@@ -1,0 +1,25 @@
+[workspace]
+resolver = "2"
+members = [
+    "multisig_escrow",
+    "merkle_whitelist",
+    "reentrancy_guard",
+    "reference",
+    "sep41-token"
+]
+
+[profile.release]
+opt-level = "z"
+overflow-checks = true
+debug = 0
+strip = "symbols"
+debug-assertions = false
+strip = "debuginfo"
+panic = "abort"
+codegen-units = 1
+lto = true
+
+[profile.release-with-logs]
+inherits = "release"
+debug-assertions = true
+debug = true

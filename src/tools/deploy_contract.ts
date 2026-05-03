@@ -6,12 +6,14 @@ import {
   Address,
   hash,
   StrKey,
+  SorobanRpc,
   xdr,
   nativeToScVal,
   Networks,
 } from '@stellar/stellar-sdk';
 
 import { getHorizonServer } from '../services/horizon.js';
+import { getSorobanServer } from '../services/soroban-rpc.js';
 import { config } from '../config.js';
 import { DeployContractInputSchema } from '../schemas/tools.js';
 import type { McpToolHandler } from '../types.js';
@@ -22,6 +24,11 @@ export interface DeployContractOutput {
   mode: 'direct' | 'factory';
   transaction_xdr: string;
   predicted_contract_id?: string;
+  optimization?: {
+    min_resource_fee: string;
+    cpu_instructions: string;
+    memory_bytes: string;
+  };
   network: string;
   source_account: string;
 }
@@ -111,14 +118,20 @@ export const deployContract: McpToolHandler<typeof DeployContractInputSchema> = 
   try {
     logger.debug({ account: sourceAccount, network }, 'Loading source account for deployment');
     account = await horizonServer.loadAccount(sourceAccount);
-  } catch (err: any) {
-    if (err.response?.status === 404) {
+  } catch (err: unknown) {
+    const status = (err as { response?: { status?: number } })?.response?.status;
+    if (status === 404) {
+    const error = err as { response?: { status?: number }; message?: string };
+    if (error.response?.status === 404) {
       throw new PulsarNetworkError(
         `Source account ${sourceAccount} not found. Fund the account before deploying.`,
         { status: 404, account_id: sourceAccount }
       );
     }
     throw new PulsarNetworkError(`Failed to load source account: ${err.message}`, {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new PulsarNetworkError(`Failed to load source account: ${message}`, {
+    throw new PulsarNetworkError(`Failed to load source account: ${error.message || String(err)}`, {
       originalError: err,
     });
   }
@@ -187,7 +200,7 @@ export const deployContract: McpToolHandler<typeof DeployContractInputSchema> = 
   // ------------------------------------------------------------------
   // 3. Build the transaction
   // ------------------------------------------------------------------
-  const tx = new TransactionBuilder(account, {
+  let tx = new TransactionBuilder(account, {
     fee: (100_000).toString(),
     networkPassphrase,
   })
@@ -195,10 +208,74 @@ export const deployContract: McpToolHandler<typeof DeployContractInputSchema> = 
     .setTimeout(30)
     .build();
 
+  let optimization:
+    | {
+        min_resource_fee: string;
+        cpu_instructions: string;
+        memory_bytes: string;
+      }
+    | undefined;
+
+  if (data.mode === 'factory' && (data.optimize_cross_contract_call ?? false)) {
+    const sorobanServer = getSorobanServer(network);
+
+    let simulation;
+    try {
+      simulation = await sorobanServer.simulateTransaction(tx);
+    } catch (err) {
+      throw new PulsarNetworkError(
+        'Failed to simulate factory deployment for cross-contract optimization',
+        { originalError: err }
+      );
+    }
+
+    if (SorobanRpc.Api.isSimulationError(simulation)) {
+      throw new PulsarNetworkError('Failed to optimize factory deployment: simulation error', {
+        simulation_error: simulation.error,
+      });
+    }
+
+    const apiWithRestore = SorobanRpc.Api as unknown as {
+      isSimulationRestore?: (result: unknown) => boolean;
+      isSimulationRestoreNeeded?: (result: unknown) => boolean;
+    };
+
+    if (
+      apiWithRestore.isSimulationRestore?.(simulation) ||
+      apiWithRestore.isSimulationRestoreNeeded?.(simulation)
+    ) {
+      throw new PulsarNetworkError(
+        'Failed to optimize factory deployment: ledger restoration is required',
+        { restore_needed: true }
+      );
+    }
+
+    if (!SorobanRpc.Api.isSimulationSuccess(simulation)) {
+      throw new PulsarNetworkError(
+        'Failed to optimize factory deployment: unexpected simulation response'
+      );
+    }
+
+    try {
+      tx = await sorobanServer.prepareTransaction(tx);
+    } catch (err) {
+      throw new PulsarNetworkError('Failed to assemble optimized factory deployment transaction', {
+        originalError: err,
+      });
+    }
+
+    optimization = {
+      min_resource_fee: simulation.minResourceFee ?? '0',
+      cpu_instructions: simulation.cost?.cpuInsns ?? '0',
+      memory_bytes: simulation.cost?.memBytes ?? '0',
+    };
+  }
+
   return {
     mode: data.mode,
     transaction_xdr: tx.toXDR(),
     predicted_contract_id: predictedContractId,
+    optimization,
     network,
     source_account: sourceAccount,
   };
