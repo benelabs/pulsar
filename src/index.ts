@@ -88,6 +88,7 @@ import {
 
 import logger from './logger.js';
 import { PulsarError, PulsarNetworkError, PulsarValidationError } from './errors.js';
+import { logToolExecution } from './audit.js';
 import { validateToolOutput } from './utils/output-validation.js';
 import type { ToolName } from './constants/tools.js';
 import { startMetricsRecording, getPrometheusMetrics } from './services/metrics.js';
@@ -1050,6 +1051,29 @@ class PulsarServer {
           },
         },
         {
+          name: 'fetch_contract_spec',
+          description:
+            'Fetch the ABI/interface spec of a deployed Soroban contract. Returns decoded function signatures, parameter types, and emitted event schemas.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              contract_id: {
+                type: 'string',
+                description: 'The Soroban contract address (C...)',
+              },
+              network: {
+                type: 'string',
+                enum: ['mainnet', 'testnet', 'futurenet', 'custom'],
+                description: 'Override the active network for this call.',
+              },
+            },
+            required: ['contract_id'],
+          },
+        },
+        {
+          name: 'simulate_transaction',
+          description:
+            'Simulates a transaction on the Soroban RPC and returns results, footprint, fees, and events.',
           name: 'optimize_contract_bytecode',
           description:
             'Analyze a Soroban contract WASM file for bytecode size risk and return optimization actions, diagnostics, and CI-friendly size checks.',
@@ -1095,6 +1119,9 @@ class PulsarServer {
           },
         },
         {
+          name: 'compute_vesting_schedule',
+          description:
+            'Calculate a token vesting / timelock release schedule for team, investors, or advisors. Returns released and unreleased amounts plus a period-by-period breakdown.',
           name: 'manage_subscription',
           description:
             'Compute the current state of a pull-payment recurring subscription between a subscriber and a merchant on the Stellar network. ' +
@@ -1180,6 +1207,40 @@ class PulsarServer {
           inputSchema: {
             type: 'object',
             properties: {
+              mode: {
+                type: 'string',
+                enum: ['direct', 'factory'],
+                description:
+                  "Deployment mode: 'direct' (built-in deployer) or 'factory' (via factory contract)",
+              },
+              source_account: {
+                type: 'string',
+                description:
+                  'Stellar public key (G...) that will deploy the contract and pay fees.',
+              },
+              wasm_hash: {
+                type: 'string',
+                description:
+                  'SHA-256 hash of the uploaded WASM as 64 hex characters. Required for direct mode.',
+              },
+              salt: {
+                type: 'string',
+                description:
+                  'Optional 32-byte salt as 64 hex characters for deterministic address. Random if omitted.',
+              },
+              factory_contract_id: {
+                type: 'string',
+                description:
+                  'Soroban contract ID (C...) of the factory contract. Required for factory mode.',
+              },
+              deploy_function: {
+                type: 'string',
+                description: "Factory deploy function name. Default: 'deploy'.",
+              },
+              deploy_args: {
+                type: 'array',
+                description:
+                  "Arguments for factory deploy function as typed SCVal objects. Each item: { type?: 'symbol'|'string'|'u32'|'i32'|'u64'|'i64'|'u128'|'i128'|'bool'|'address'|'bytes'|'void', value: any }",
               contract_id: {
                 type: 'string',
                 description: 'The Soroban contract address (C…, 56 chars).',
@@ -1224,6 +1285,9 @@ class PulsarServer {
         }
         const toolName = parsedToolName.data;
         logger.debug({ tool: name, arguments: args }, `Executing tool: ${name}`);
+
+        let result: any;
+
         switch (name) {
           case 'get_account_balance': {
             const parsed = GetAccountBalanceInputSchema.safeParse(args);
@@ -1245,6 +1309,8 @@ class PulsarServer {
                 parsed.error.format()
               );
             }
+            result = await getAccountBalance(parsed.data);
+            break;
             const result = await trackToolExecution('get_account_balance', () => getAccountBalance(parsed.data));
             const result = await getAccountBalance(parsed.data);
             return this.successResponse(toolName, result);
@@ -1282,6 +1348,8 @@ class PulsarServer {
                 parsed.error.format()
               );
             }
+            result = await fetchContractSpec(parsed.data);
+            break;
             const result = await fetchContractSpec(parsed.data);
             return this.successResponse(toolName, result);
             const result = await trackToolExecution('fetch_contract_spec', () => fetchContractSpec(parsed.data));
@@ -1306,6 +1374,8 @@ class PulsarServer {
                 parsed.error.format()
               );
             }
+            result = await submitTransaction(parsed.data);
+            break;
             const result = await submitTransaction(parsed.data);
             return this.successResponse(toolName, result);
             const result = await trackToolExecution('submit_transaction', () => submitTransaction(parsed.data));
@@ -1345,6 +1415,8 @@ class PulsarServer {
                 parsed.error.format()
               );
             }
+            result = await simulateTransaction(parsed.data);
+            break;
             const result = await simulateTransaction(parsed.data);
             return this.successResponse(toolName, result);
             const result = await trackToolExecution('simulate_transaction', () => simulateTransaction(parsed.data));
@@ -1409,6 +1481,8 @@ class PulsarServer {
                 parsed.error.format()
               );
             }
+            result = await computeVestingSchedule(parsed.data);
+            break;
             const result = await computeVestingSchedule(parsed.data);
             return this.successResponse(toolName, result);
                 `Invalid input for soroban_math`,
@@ -1459,6 +1533,8 @@ class PulsarServer {
                 parsed.error.format()
               );
             }
+            result = await deployContract(parsed.data);
+            break;
             const result = await deployContract(parsed.data);
             return this.successResponse(toolName, result);
               throw new PulsarValidationError(`Invalid input for manage_restricted_addresses`, parsed.error.format());
@@ -1698,7 +1774,24 @@ class PulsarServer {
           default:
             throw new McpError(ErrorCode.MethodNotFound, `Tool not found: ${name}`);
         }
+
+        await logToolExecution(name, args, 'success', result);
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result),
+            },
+          ],
+        };
       } catch (error) {
+        return await this.handleToolError(error, name, args);
+      }
+    });
+  }
+
+  private async handleToolError(error: unknown, toolName: string, inputs: any) {
         logger.error(error);
         return {
           content: [
@@ -1731,6 +1824,12 @@ class PulsarServer {
     if (error instanceof PulsarError) {
       pulsarError = error;
     } else if (error instanceof McpError) {
+      // Log MCP errors (e.g. MethodNotFound) before passing through
+      await logToolExecution(toolName, inputs, 'error', {
+        status: 'error',
+        error_code: error.code,
+        message: error.message,
+      });
       throw error;
     } else {
       pulsarError = new PulsarNetworkError(error instanceof Error ? error.message : String(error), { originalError: error });
@@ -1750,17 +1849,22 @@ class PulsarServer {
       `Error executing tool ${toolName}`
     );
 
+    const errorResponse = {
     const errorPayload = validateToolOutput('tool_error', ToolErrorOutputSchema, {
       status: 'error',
       error_code: pulsarError.code,
       message: pulsarError.message,
       details: pulsarError.details,
+    };
+
+    await logToolExecution(toolName, inputs, 'error', errorResponse);
     });
 
     return {
       content: [
         {
           type: 'text',
+          text: JSON.stringify(errorResponse),
           text: JSON.stringify(errorPayload),
         },
       ],

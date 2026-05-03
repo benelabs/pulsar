@@ -1,4 +1,7 @@
 import { performance } from 'perf_hooks';
+
+import { simulateTransaction } from '../tools/simulate_transaction.js';
+import logger from '../logger.js';
 import { fileURLToPath } from 'url';
 
 import { simulateTransaction } from '../tools/simulate_transaction';
@@ -57,6 +60,10 @@ export async function benchmarkGas({
   let simulationResult;
   let error;
   try {
+    simulationResult = await simulateTransaction({ contractId, method, args, account } as any);
+  } catch (e) {
+    error = e;
+    logger.error(e, 'Simulation failed');
     simulationResult = await simulateTransaction({
       xdr,
       network: network as 'mainnet' | 'testnet' | 'futurenet' | 'custom' | undefined,
@@ -80,6 +87,7 @@ export async function benchmarkGas({
   const endMem = process.memoryUsage().rss;
   const cpuMs = end - start;
   const memDelta = endMem - startMem;
+  let pulsarGas = (simulationResult as any)?.gas ?? null;
   let pulsarGas = simulationResult?.gas ?? null;
   logger.info('Benchmark complete', {
     cpuMs,

@@ -10,6 +10,10 @@ const configSchema = z.object({
   stellarNetwork: z.enum(['mainnet', 'testnet', 'futurenet', 'custom']).default('testnet'),
   horizonUrl: z.string().url().optional(),
   sorobanRpcUrl: z.string().url().optional(),
+  stellarSecretKey: z.string().startsWith('S').length(56).optional(),
+  stellarCliPath: z.string().default('stellar'),
+  logLevel: z.enum(['error', 'warn', 'info', 'debug']).default('info'),
+  auditLogPath: z.string().default('audit.log'),
   sorobanRpcUrls: z.array(z.string().url()).optional().describe("Array of Soroban RPC endpoints for latency-based routing (preferred over sorobanRpcUrl)"),
   stellarSecretKey: z.string().startsWith("S").length(56).optional(),
   stellarCliPath: z.string().default("stellar"),
@@ -37,6 +41,7 @@ const rawConfig = {
   stellarSecretKey: process.env.STELLAR_SECRET_KEY || undefined,
   stellarCliPath: process.env.STELLAR_CLI_PATH || 'stellar',
   logLevel: process.env.LOG_LEVEL || 'info',
+  auditLogPath: process.env.AUDIT_LOG_PATH || 'audit.log',
   stellarCliPath: process.env.STELLAR_CLI_PATH || "stellar",
   logLevel: process.env.LOG_LEVEL || "info",
   metricsEnabled: process.env.METRICS_ENABLED !== "false",
@@ -51,6 +56,10 @@ const rawConfig = {
 const parsed = configSchema.safeParse(rawConfig);
 
 if (!parsed.success) {
+  console.error(
+    '❌ Invalid environment variables:',
+    JSON.stringify(parsed.error.format(), null, 2)
+  );
   // eslint-disable-next-line no-console
   console.error("❌ Invalid environment variables:", JSON.stringify(parsed.error.format(), null, 2));
   logger.fatal({ validationErrors: parsed.error.format() }, 'Invalid environment variables');
