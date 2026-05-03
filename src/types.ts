@@ -1,19 +1,19 @@
-import { z } from "zod";
+import { z } from 'zod';
 
 /**
  * Supported Stellar networks.
  */
 export enum StellarNetwork {
-  Mainnet = "mainnet",
-  Testnet = "testnet",
-  Futurenet = "futurenet",
-  Custom = "custom",
+  Mainnet = 'mainnet',
+  Testnet = 'testnet',
+  Futurenet = 'futurenet',
+  Custom = 'custom',
 }
 
 /**
  * Standard tool handler signature for the pulsar MCP server.
- * 
- * Each tool handler takes a Zod-validated input schema and returns 
+ *
+ * Each tool handler takes a Zod-validated input schema and returns
  * a result that the AI assistant can immediately consume.
  */
 export type McpToolHandler<T extends z.ZodTypeAny = z.ZodTypeAny> = (
@@ -23,6 +23,18 @@ export type McpToolHandler<T extends z.ZodTypeAny = z.ZodTypeAny> = (
 /**
  * Common types for tool results and errors.
  */
+export const AccountIdSchema = z
+  .string()
+  .startsWith('G')
+  .length(56)
+  .describe('A Stellar public key starting with G.');
+export const ContractIdSchema = z
+  .string()
+  .startsWith('C')
+  .length(56)
+  .describe('A Soroban contract ID starting with C.');
+export const XdrSchema = z.string().describe('Base64-encoded XDR blob.');
+
 export interface ErrorResponse {
   error: {
     code: number;

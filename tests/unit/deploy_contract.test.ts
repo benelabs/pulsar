@@ -1,15 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { TransactionBuilder, Networks, Keypair } from '@stellar/stellar-sdk';
+import { TransactionBuilder, Networks, Keypair, SorobanRpc } from '@stellar/stellar-sdk';
 
 import { deployContract } from '../../src/tools/deploy_contract.js';
 import { getHorizonServer } from '../../src/services/horizon.js';
+import { getSorobanServer } from '../../src/services/soroban-rpc.js';
 
 vi.mock('../../src/services/horizon.js', () => ({
   getHorizonServer: vi.fn(),
 }));
 
+vi.mock('../../src/services/soroban-rpc.js', () => ({
+  getSorobanServer: vi.fn(),
+}));
+
 describe('deployContract', () => {
   let mockServer: any;
+  let mockSorobanServer: any;
 
   const SOURCE_ACCOUNT = Keypair.random().publicKey();
   const WASM_HASH = 'a'.repeat(64);
@@ -20,13 +26,24 @@ describe('deployContract', () => {
     mockServer = {
       loadAccount: vi.fn(),
     };
+    mockSorobanServer = {
+      simulateTransaction: vi.fn(),
+      prepareTransaction: vi.fn(),
+    };
     vi.mocked(getHorizonServer).mockReturnValue(mockServer);
+    vi.mocked(getSorobanServer).mockReturnValue(mockSorobanServer);
   });
 
   function mockAccount(sequence = '123456789') {
+    let currentSequence = BigInt(sequence);
     mockServer.loadAccount.mockResolvedValue({
       accountId: () => SOURCE_ACCOUNT,
       sequenceNumber: () => sequence,
+      incrementSequenceNumber: vi.fn(),
+      sequenceNumber: () => currentSequence.toString(),
+      incrementSequenceNumber: () => {
+        currentSequence += 1n;
+      },
     });
   }
 
@@ -226,6 +243,53 @@ describe('deployContract', () => {
       })) as any;
 
       expect(result.transaction_xdr).toBeDefined();
+    });
+
+    it('optimizes factory deployment when optimize_cross_contract_call is true', async () => {
+      mockAccount();
+
+      mockSorobanServer.simulateTransaction.mockResolvedValue({
+        cost: { cpuInsns: '345', memBytes: '678' },
+        minResourceFee: '2500',
+      } as any);
+
+      mockSorobanServer.prepareTransaction.mockResolvedValue({
+        toXDR: () => 'optimized-xdr',
+      });
+
+      vi.spyOn(SorobanRpc.Api, 'isSimulationSuccess').mockReturnValue(true);
+      vi.spyOn(SorobanRpc.Api, 'isSimulationError').mockReturnValue(false);
+
+      const result = (await deployContract({
+        mode: 'factory',
+        source_account: SOURCE_ACCOUNT,
+        factory_contract_id: FACTORY_CONTRACT_ID,
+        optimize_cross_contract_call: true,
+      })) as any;
+
+      expect(mockSorobanServer.simulateTransaction).toHaveBeenCalledOnce();
+      expect(mockSorobanServer.prepareTransaction).toHaveBeenCalledOnce();
+      expect(result.transaction_xdr).toBe('optimized-xdr');
+      expect(result.optimization).toEqual({
+        min_resource_fee: '2500',
+        cpu_instructions: '345',
+        memory_bytes: '678',
+      });
+    });
+
+    it('returns a clear error when optimization simulation fails', async () => {
+      mockAccount();
+
+      mockSorobanServer.simulateTransaction.mockRejectedValue(new Error('RPC unavailable'));
+
+      await expect(
+        deployContract({
+          mode: 'factory',
+          source_account: SOURCE_ACCOUNT,
+          factory_contract_id: FACTORY_CONTRACT_ID,
+          optimize_cross_contract_call: true,
+        })
+      ).rejects.toThrow('Failed to simulate factory deployment for cross-contract optimization');
     });
 
     it('rejects missing factory_contract_id in factory mode', async () => {

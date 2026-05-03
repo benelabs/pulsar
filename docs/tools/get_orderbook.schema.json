@@ -1,0 +1,261 @@
+{
+  "name": "get_orderbook",
+  "description": "Retrieve and analyze the Stellar DEX orderbook for a trading pair. Returns raw bids/asks plus derived analytics including spread, mid price, liquidity depth, and order book imbalance. Useful for market making, arbitrage detection, and liquidity analysis.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "selling_asset_code": {
+        "type": "string",
+        "description": "Asset code being sold (e.g. XLM, USDC). Must be 1-12 alphanumeric characters.",
+        "minLength": 1,
+        "maxLength": 12,
+        "pattern": "^[a-zA-Z0-9]+$"
+      },
+      "selling_asset_issuer": {
+        "type": "string",
+        "description": "Issuer account for selling asset. Omit for XLM native. Must be a valid Stellar account ID starting with G (56 characters).",
+        "pattern": "^G[A-Z2-7]{55}$"
+      },
+      "buying_asset_code": {
+        "type": "string",
+        "description": "Asset code being bought (e.g. XLM, USDC). Must be 1-12 alphanumeric characters.",
+        "minLength": 1,
+        "maxLength": 12,
+        "pattern": "^[a-zA-Z0-9]+$"
+      },
+      "buying_asset_issuer": {
+        "type": "string",
+        "description": "Issuer account for buying asset. Omit for XLM native. Must be a valid Stellar account ID starting with G (56 characters).",
+        "pattern": "^G[A-Z2-7]{55}$"
+      },
+      "limit": {
+        "type": "integer",
+        "description": "Number of price levels to return per side. Must be between 1 and 200. Default: 20. Use lower values (5-20) for quick market snapshots, higher values (50-200) for deep liquidity analysis.",
+        "minimum": 1,
+        "maximum": 200,
+        "default": 20
+      },
+      "depth_levels": {
+        "type": "array",
+        "description": "Price percentage levels for depth analysis (e.g. [1, 2, 5] for 1%, 2%, 5% from mid price). Default: [1, 2, 5]. Used to compute bid/ask liquidity within specified percentage ranges of the mid price.",
+        "items": {
+          "type": "number",
+          "minimum": 0
+        },
+        "default": [1, 2, 5]
+      },
+      "network": {
+        "type": "string",
+        "enum": ["mainnet", "testnet", "futurenet", "custom"],
+        "description": "Override the configured network for this call. Default: uses configured network."
+      }
+    },
+    "required": ["selling_asset_code", "buying_asset_code"]
+  },
+  "returns": {
+    "type": "object",
+    "properties": {
+      "selling_asset": {
+        "type": "object",
+        "description": "The asset being sold",
+        "properties": {
+          "code": { "type": "string" },
+          "issuer": { "type": "string" }
+        }
+      },
+      "buying_asset": {
+        "type": "object",
+        "description": "The asset being bought",
+        "properties": {
+          "code": { "type": "string" },
+          "issuer": { "type": "string" }
+        }
+      },
+      "bids": {
+        "type": "array",
+        "description": "Array of bid orders (buy orders), sorted by price descending (best bid first)",
+        "items": {
+          "type": "object",
+          "properties": {
+            "price_r": {
+              "type": "object",
+              "description": "Price as a rational number (numerator/denominator)",
+              "properties": {
+                "n": { "type": "integer" },
+                "d": { "type": "integer" }
+              }
+            },
+            "price": {
+              "type": "string",
+              "description": "Price as a decimal string (7 decimal places)"
+            },
+            "amount": {
+              "type": "string",
+              "description": "Amount available at this price level (7 decimal places)"
+            }
+          }
+        }
+      },
+      "asks": {
+        "type": "array",
+        "description": "Array of ask orders (sell orders), sorted by price ascending (best ask first)",
+        "items": {
+          "type": "object",
+          "properties": {
+            "price_r": {
+              "type": "object",
+              "description": "Price as a rational number (numerator/denominator)",
+              "properties": {
+                "n": { "type": "integer" },
+                "d": { "type": "integer" }
+              }
+            },
+            "price": {
+              "type": "string",
+              "description": "Price as a decimal string (7 decimal places)"
+            },
+            "amount": {
+              "type": "string",
+              "description": "Amount available at this price level (7 decimal places)"
+            }
+          }
+        }
+      },
+      "empty_book": {
+        "type": "boolean",
+        "description": "True if orderbook has no bids and no asks"
+      },
+      "analytics": {
+        "type": "object",
+        "description": "Derived analytics computed from raw orderbook data. Null if orderbook is empty.",
+        "properties": {
+          "best_bid": {
+            "type": "string",
+            "description": "Highest bid price (top of buy side). Null if no bids. Formula: bids[0].price"
+          },
+          "best_ask": {
+            "type": "string",
+            "description": "Lowest ask price (top of sell side). Null if no asks. Formula: asks[0].price"
+          },
+          "mid_price": {
+            "type": "string",
+            "description": "Mid-market price. Null if missing bid or ask. Formula: (best_bid + best_ask) / 2"
+          },
+          "spread": {
+            "type": "string",
+            "description": "Absolute spread between best bid and ask. Null if missing bid or ask. Formula: best_ask - best_bid"
+          },
+          "spread_percentage": {
+            "type": "string",
+            "description": "Spread as percentage of best ask. Null if missing bid or ask. Formula: (spread / best_ask) * 100"
+          },
+          "total_bid_liquidity": {
+            "type": "string",
+            "description": "Sum of all bid amounts. Formula: sum(bids[].amount)"
+          },
+          "total_ask_liquidity": {
+            "type": "string",
+            "description": "Sum of all ask amounts. Formula: sum(asks[].amount)"
+          },
+          "bid_depth_at_levels": {
+            "type": "object",
+            "description": "Total bid liquidity within each configured percentage level below mid price. Keys are percentage levels (e.g. '1', '2', '5'), values are liquidity amounts.",
+            "additionalProperties": { "type": "string" }
+          },
+          "ask_depth_at_levels": {
+            "type": "object",
+            "description": "Total ask liquidity within each configured percentage level above mid price. Keys are percentage levels (e.g. '1', '2', '5'), values are liquidity amounts.",
+            "additionalProperties": { "type": "string" }
+          },
+          "orderbook_imbalance": {
+            "type": "string",
+            "description": "Orderbook imbalance ratio. Ranges from -1 (all asks) to +1 (all bids). 0 indicates balanced orderbook. Null if total volume is zero. Formula: (bid_volume - ask_volume) / (bid_volume + ask_volume)"
+          },
+          "weighted_avg_bid_price": {
+            "type": "string",
+            "description": "Volume-weighted average bid price. Null if no bids. Formula: sum(bid.price * bid.amount) / sum(bid.amount)"
+          },
+          "weighted_avg_ask_price": {
+            "type": "string",
+            "description": "Volume-weighted average ask price. Null if no asks. Formula: sum(ask.price * ask.amount) / sum(ask.amount)"
+          }
+        }
+      }
+    }
+  },
+  "errors": [
+    {
+      "code": "INVALID_ASSET",
+      "status": 400,
+      "message": "Asset code must be 1–12 alphanumeric characters",
+      "trigger": "Invalid asset code format"
+    },
+    {
+      "code": "MISSING_ISSUER",
+      "status": 400,
+      "message": "Non-native assets require an issuer account ID",
+      "trigger": "Non-native asset provided without issuer"
+    },
+    {
+      "code": "INVALID_ISSUER",
+      "status": 400,
+      "message": "Issuer must be a valid Stellar account ID (G...)",
+      "trigger": "Invalid issuer account ID format"
+    },
+    {
+      "code": "INVALID_LIMIT",
+      "status": 400,
+      "message": "Limit must be between 1 and 200",
+      "trigger": "Limit parameter out of valid range"
+    },
+    {
+      "code": "RATE_LIMITED",
+      "status": 429,
+      "message": "Request rate limited, please slow down",
+      "trigger": "Horizon API rate limit exceeded"
+    },
+    {
+      "code": "HORIZON_UNAVAILABLE",
+      "status": 503,
+      "message": "Stellar network unavailable, please retry",
+      "trigger": "Horizon API is unreachable or returning 503/504"
+    }
+  ],
+  "examples": [
+    {
+      "description": "Get XLM/USDC orderbook with default settings",
+      "request": {
+        "selling_asset_code": "XLM",
+        "buying_asset_code": "USDC",
+        "buying_asset_issuer": "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN"
+      }
+    },
+    {
+      "description": "Get top 5 levels of USDC/XLM orderbook with custom depth analysis",
+      "request": {
+        "selling_asset_code": "USDC",
+        "selling_asset_issuer": "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN",
+        "buying_asset_code": "XLM",
+        "limit": 5,
+        "depth_levels": [0.5, 1, 2]
+      }
+    }
+  ],
+  "use_cases": [
+    "Market making: Monitor spread and liquidity to optimize quote placement",
+    "Arbitrage detection: Compare orderbooks across trading pairs to identify price discrepancies",
+    "Liquidity analysis: Assess market depth at various price levels for large order execution",
+    "Trading strategy: Use orderbook imbalance as a signal for directional bias",
+    "Risk management: Monitor spread percentage and depth to assess market quality"
+  ],
+  "performance_notes": {
+    "response_time": "Typically < 500ms for limit <= 20, < 1s for limit = 200",
+    "analytics_computation": "< 5ms for limit = 200",
+    "recommended_limits": {
+      "quick_snapshot": "5-20 levels",
+      "standard_analysis": "20-50 levels",
+      "deep_liquidity_analysis": "100-200 levels"
+    },
+    "caching": "No caching - orderbook data is real-time by nature"
+  }
+}

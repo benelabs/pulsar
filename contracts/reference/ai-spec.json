@@ -1,0 +1,117 @@
+{
+  "name": "ReferenceToken",
+  "description": "A complete, auditable reference implementation of the SEP-41 token standard for Soroban.",
+  "methods": [
+    {
+      "name": "initialize",
+      "description": "Initialise the token. Must be called exactly once.",
+      "parameters": [
+        { "name": "admin", "type": "Address", "description": "Address that can mint and set metadata." },
+        { "name": "decimals", "type": "u32", "description": "Number of decimal places (e.g. 7 for Stellar-style)." },
+        { "name": "name", "type": "String", "description": "Human-readable token name." },
+        { "name": "symbol", "type": "String", "description": "Short ticker symbol." }
+      ]
+    },
+    {
+      "name": "mint",
+      "description": "Mint `amount` tokens to `to`. Only callable by the admin.",
+      "parameters": [
+        { "name": "to", "type": "Address", "description": "Recipient address." },
+        { "name": "amount", "type": "i128", "description": "Amount to mint." }
+      ]
+    },
+    {
+      "name": "decimals",
+      "description": "Returns the number of decimals used to represent amounts of this token.",
+      "parameters": [],
+      "returns": "u32"
+    },
+    {
+      "name": "name",
+      "description": "Returns the name of the token.",
+      "parameters": [],
+      "returns": "String"
+    },
+    {
+      "name": "symbol",
+      "description": "Returns the symbol of the token.",
+      "parameters": [],
+      "returns": "String"
+    },
+    {
+      "name": "total_supply",
+      "description": "Returns the total supply of the token.",
+      "parameters": [],
+      "returns": "i128"
+    },
+    {
+      "name": "balance",
+      "description": "Returns the balance of `id`.",
+      "parameters": [
+        { "name": "id", "type": "Address", "description": "Address to query." }
+      ],
+      "returns": "i128"
+    },
+    {
+      "name": "allowance",
+      "description": "Returns the allowance for `spender` to transfer from `from`.",
+      "parameters": [
+        { "name": "from", "type": "Address", "description": "Owner address." },
+        { "name": "spender", "type": "Address", "description": "Spender address." }
+      ],
+      "returns": "i128"
+    },
+    {
+      "name": "approve",
+      "description": "Approve `spender` to spend up to `amount` from `from` until `expiration_ledger`.",
+      "parameters": [
+        { "name": "from", "type": "Address", "description": "Owner address." },
+        { "name": "spender", "type": "Address", "description": "Spender address." },
+        { "name": "amount", "type": "i128", "description": "Allowance amount." },
+        { "name": "expiration_ledger", "type": "u32", "description": "Ledger sequence until allowance is valid." }
+      ]
+    },
+    {
+      "name": "transfer",
+      "description": "Transfer `amount` from `from` to `to`.",
+      "parameters": [
+        { "name": "from", "type": "Address", "description": "Sender address." },
+        { "name": "to", "type": "Address", "description": "Recipient address." },
+        { "name": "amount", "type": "i128", "description": "Transfer amount." }
+      ]
+    },
+    {
+      "name": "transfer_from",
+      "description": "Transfer `amount` from `from` to `to`, consuming `spender`'s allowance.",
+      "parameters": [
+        { "name": "spender", "type": "Address", "description": "Spender address." },
+        { "name": "from", "type": "Address", "description": "Sender address." },
+        { "name": "to", "type": "Address", "description": "Recipient address." },
+        { "name": "amount", "type": "i128", "description": "Transfer amount." }
+      ]
+    },
+    {
+      "name": "burn",
+      "description": "Burn `amount` from `from`.",
+      "parameters": [
+        { "name": "from", "type": "Address", "description": "Owner address." },
+        { "name": "amount", "type": "i128", "description": "Burn amount." }
+      ]
+    },
+    {
+      "name": "burn_from",
+      "description": "Burn `amount` from `from`, consuming `spender`'s allowance.",
+      "parameters": [
+        { "name": "spender", "type": "Address", "description": "Spender address." },
+        { "name": "from", "type": "Address", "description": "Owner address." },
+        { "name": "amount", "type": "i128", "description": "Burn amount." }
+      ]
+    }
+  ],
+  "events": [
+    { "topics": ["mint", "Address", "Address"], "data": "i128", "description": "Mint tokens." },
+    { "topics": ["transfer", "Address", "Address"], "data": "i128", "description": "Transfer tokens." },
+    { "topics": ["burn", "Address"], "data": "i128", "description": "Burn tokens." },
+    { "topics": ["approve", "Address", "Address"], "data": {"amount": "i128", "expiration_ledger": "u32"}, "description": "Approve allowance." }
+  ]
+}

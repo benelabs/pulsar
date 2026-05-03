@@ -1,0 +1,263 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+import type { FetchContractSpecOutput } from '../../src/tools/fetch_contract_spec.js';
+import { fetchContractSpec } from '../../src/tools/fetch_contract_spec.js';
+import { generateContractClient } from '../../src/tools/generate_contract_client.js';
+
+// Mock fetchContractSpec so tests are pure computation (no network)
+vi.mock('../../src/tools/fetch_contract_spec.js', () => ({
+  fetchContractSpec: vi.fn(),
+}));
+
+// ---------------------------------------------------------------------------
+// Fixtures
+// ---------------------------------------------------------------------------
+
+const CONTRACT_ID = 'CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA';
+
+const TOKEN_SPEC: FetchContractSpecOutput = {
+  contract_id: CONTRACT_ID,
+  network: 'testnet',
+  functions: [
+    {
+      name: 'transfer',
+      doc: 'Transfer tokens from one account to another.',
+      inputs: [
+        { name: 'from', type: 'Address' },
+        { name: 'to', type: 'Address' },
+        { name: 'amount', type: 'i128' },
+      ],
+      outputs: [],
+    },
+    {
+      name: 'balance',
+      inputs: [{ name: 'id', type: 'Address' }],
+      outputs: [{ type: 'i128' }],
+    },
+    {
+      name: 'approve',
+      inputs: [
+        { name: 'from', type: 'Address' },
+        { name: 'spender', type: 'Address' },
+        { name: 'amount', type: 'i128' },
+        { name: 'expiration_ledger', type: 'u32' },
+      ],
+      outputs: [{ type: 'bool' }],
+    },
+  ],
+  events: [
+    {
+      name: 'transfer',
+      topics: [{ type: 'Symbol' }, { type: 'Address' }, { type: 'Address' }],
+      data: { type: 'i128' },
+    },
+  ],
+  raw_xdr: 'AAAAAgAAAA...',
+};
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+describe('generateContractClient', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  describe('input validation', () => {
+    it('throws when neither contract_id nor contract_spec is provided', async () => {
+      await expect(generateContractClient({})).rejects.toThrow('Provide either contract_id');
+    });
+
+    it('throws on invalid contract_id format', async () => {
+      await expect(
+        generateContractClient({ contract_id: 'INVALID' as unknown as `C${string}` })
+      ).rejects.toThrow('Invalid input for generate_contract_client');
+    });
+
+    it('throws on invalid class_name', async () => {
+      await expect(
+        generateContractClient({
+          contract_spec: TOKEN_SPEC,
+          class_name: '123Invalid',
+        })
+      ).rejects.toThrow('Invalid input for generate_contract_client');
+    });
+  });
+
+  describe('with pre-fetched contract_spec', () => {
+    it('returns contract_id, network, class_name, and client_ts', async () => {
+      const result = await generateContractClient({ contract_spec: TOKEN_SPEC });
+
+      expect(result.contract_id).toBe(CONTRACT_ID);
+      expect(result.network).toBe('testnet');
+      expect(result.class_name).toMatch(/^Contract[A-Z0-9]+Client$/);
+      expect(typeof result.client_ts).toBe('string');
+      expect(result.client_ts.length).toBeGreaterThan(0);
+    });
+
+    it('does NOT call fetchContractSpec when spec is provided', async () => {
+      await generateContractClient({ contract_spec: TOKEN_SPEC });
+      expect(vi.mocked(fetchContractSpec)).not.toHaveBeenCalled();
+    });
+
+    it('respects custom class_name', async () => {
+      const result = await generateContractClient({
+        contract_spec: TOKEN_SPEC,
+        class_name: 'MyTokenClient',
+      });
+      expect(result.class_name).toBe('MyTokenClient');
+      expect(result.client_ts).toContain('export class MyTokenClient');
+    });
+  });
+
+  describe('with contract_id (fetches spec)', () => {
+    it('calls fetchContractSpec with the given contract_id and network', async () => {
+      vi.mocked(fetchContractSpec).mockResolvedValueOnce(TOKEN_SPEC);
+
+      await generateContractClient({ contract_id: CONTRACT_ID, network: 'mainnet' });
+
+      expect(vi.mocked(fetchContractSpec)).toHaveBeenCalledWith({
+        contract_id: CONTRACT_ID,
+        network: 'mainnet',
+      });
+    });
+
+    it('propagates fetchContractSpec errors', async () => {
+      vi.mocked(fetchContractSpec).mockRejectedValueOnce(
+        new Error('stellar CLI error: contract not found')
+      );
+
+      await expect(generateContractClient({ contract_id: CONTRACT_ID })).rejects.toThrow(
+        'stellar CLI error: contract not found'
+      );
+    });
+  });
+
+  describe('generated TypeScript source', () => {
+    let clientTs: string;
+
+    beforeEach(async () => {
+      const result = await generateContractClient({ contract_spec: TOKEN_SPEC });
+      clientTs = result.client_ts;
+    });
+
+    it('includes the auto-generated header comment', () => {
+      expect(clientTs).toContain('Auto-generated by pulsar generate_contract_client');
+      expect(clientTs).toContain(CONTRACT_ID);
+    });
+
+    it('imports from @stellar/stellar-sdk', () => {
+      expect(clientTs).toContain('from "@stellar/stellar-sdk"');
+      expect(clientTs).toContain('SorobanRpc');
+      expect(clientTs).toContain('TransactionBuilder');
+      expect(clientTs).toContain('nativeToScVal');
+      expect(clientTs).toContain('scValToNative');
+    });
+
+    it('generates a method for each contract function', () => {
+      expect(clientTs).toContain('async transfer(');
+      expect(clientTs).toContain('async balance(');
+      expect(clientTs).toContain('async approve(');
+    });
+
+    it('maps Address inputs to string parameters', () => {
+      expect(clientTs).toContain('from: string');
+      expect(clientTs).toContain('to: string');
+    });
+
+    it('maps i128 inputs to bigint parameters', () => {
+      expect(clientTs).toContain('amount: bigint');
+    });
+
+    it('maps u32 inputs to number parameters', () => {
+      expect(clientTs).toContain('expiration_ledger: number');
+    });
+
+    it('maps i128 return type to Promise<bigint>', () => {
+      expect(clientTs).toContain('Promise<bigint>');
+    });
+
+    it('maps bool return type to Promise<boolean>', () => {
+      expect(clientTs).toContain('Promise<boolean>');
+    });
+
+    it('maps void return (no outputs) to Promise<void>', () => {
+      expect(clientTs).toContain('Promise<void>');
+    });
+
+    it('includes JSDoc for functions that have doc strings', () => {
+      expect(clientTs).toContain('Transfer tokens from one account to another.');
+    });
+
+    it('generates event interface for each event', () => {
+      expect(clientTs).toContain('export interface TransferEvent');
+    });
+
+    it('uses the contract_id in the constructor', () => {
+      expect(clientTs).toContain('this.contractId');
+    });
+
+    it('includes simulation error handling', () => {
+      expect(clientTs).toContain('isSimulationSuccess');
+      expect(clientTs).toContain('Contract call failed');
+    });
+
+    it('uses invokeContractFunction with the correct function name', () => {
+      expect(clientTs).toContain('function: "transfer"');
+      expect(clientTs).toContain('function: "balance"');
+    });
+  });
+
+  describe('type mapping', () => {
+    it('handles Option<T> types', async () => {
+      const spec: FetchContractSpecOutput = {
+        ...TOKEN_SPEC,
+        functions: [
+          {
+            name: 'get_optional',
+            inputs: [{ name: 'val', type: 'Option<Address>' }],
+            outputs: [{ type: 'Option<i128>' }],
+          },
+        ],
+        events: [],
+      };
+      const result = await generateContractClient({ contract_spec: spec });
+      expect(result.client_ts).toContain('string | null');
+      expect(result.client_ts).toContain('bigint | null');
+    });
+
+    it('handles Vec<T> types', async () => {
+      const spec: FetchContractSpecOutput = {
+        ...TOKEN_SPEC,
+        functions: [
+          {
+            name: 'get_list',
+            inputs: [{ name: 'ids', type: 'Vec<Address>' }],
+            outputs: [{ type: 'Vec<i128>' }],
+          },
+        ],
+        events: [],
+      };
+      const result = await generateContractClient({ contract_spec: spec });
+      expect(result.client_ts).toContain('string[]');
+      expect(result.client_ts).toContain('bigint[]');
+    });
+
+    it('falls back to unknown for unrecognised types', async () => {
+      const spec: FetchContractSpecOutput = {
+        ...TOKEN_SPEC,
+        functions: [
+          {
+            name: 'custom_fn',
+            inputs: [{ name: 'arg', type: 'CustomStruct' }],
+            outputs: [{ type: 'CustomStruct' }],
+          },
+        ],
+        events: [],
+      };
+      const result = await generateContractClient({ contract_spec: spec });
+      expect(result.client_ts).toContain('unknown');
+    });
+  });
+});
