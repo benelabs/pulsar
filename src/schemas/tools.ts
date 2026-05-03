@@ -200,6 +200,30 @@ export type GetContractStorageInput = z.infer<
 >;
 
 /**
+ * Schema for observe_bridge_events tool
+ *
+ * Inputs:
+ * - contract_id: Soroban contract ID (required)
+ * - event_type: Optional Soroban event type ('contract' | 'system' | 'diagnostic')
+ * - topic_filters: Optional nested array of base64 topic values or wildcards
+ * - start_ledger: Optional ledger sequence at which to begin scanning
+ * - cursor: Optional paging token to continue from a previous page
+ * - limit: Optional maximum number of returned events
+ * - network: Optional network override
+ */
+export const ObserveBridgeEventsInputSchema = z.object({
+  contract_id: ContractIdSchema,
+  event_type: z.enum(['contract', 'system', 'diagnostic']).optional(),
+  topic_filters: z.array(z.array(z.string())).optional(),
+  start_ledger: z.number().int().nonnegative().optional(),
+  cursor: z.string().optional(),
+  limit: z.number().int().positive().optional(),
+  network: NetworkSchema.optional(),
+});
+
+export type ObserveBridgeEventsInput = z.infer<typeof ObserveBridgeEventsInputSchema>;
+
+/**
  * Schema for simulate_transaction tool
  *
  * Inputs:
@@ -317,6 +341,7 @@ export const CalculateEnglishAuctionStateInputSchema = z.object({
   current_timestamp: z.number().int().positive().optional(),
 });
 
+export type SimulateTransactionInput = z.infer<typeof SimulateTransactionInputSchema>;
 export type CalculateEnglishAuctionStateInput = z.infer<
   typeof CalculateEnglishAuctionStateInputSchema
 >;

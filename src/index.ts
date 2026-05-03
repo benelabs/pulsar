@@ -9,6 +9,10 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 
 import { config } from './config.js';
+import { fetchContractSpec, fetchContractSpecSchema } from './tools/fetch_contract_spec.js';
+import { observeBridgeEvents } from './tools/observe_bridge_events.js';
+
+import { config } from './config.js';
 
 import { config } from './config.js';
 
@@ -92,6 +96,7 @@ import {
   SorobanMathInputSchema,
   ComputeVestingScheduleInputSchema,
   DeployContractInputSchema,
+  ObserveBridgeEventsInputSchema,
   EstimateTokenFeesInputSchema,
   GetOrderbookInputSchema,
   GetPriceFeedInputSchema,
@@ -396,6 +401,8 @@ class PulsarServer {
             'Fetch the ABI/interface spec of a deployed Soroban contract. Returns decoded function signatures, parameter types, and emitted event schemas.',
           description:
             'Fetch the ABI/interface spec of a deployed Soroban contract. Returns decoded function signatures, parameter types, and emitted event schemas.',
+          description:
+            'Fetch the ABI/interface spec of a deployed Soroban contract. Returns decoded function signatures, parameter types, and emitted event schemas.',
           inputSchema: {
             type: 'object',
           description:
@@ -432,6 +439,57 @@ class PulsarServer {
                 type: 'string',
                 enum: ['mainnet', 'testnet', 'futurenet', 'custom'],
                 description: 'Override the active network for this call.',
+              },
+            },
+            required: ['contract_id'],
+          },
+        },
+        {
+          name: 'observe_bridge_events',
+          description:
+            'Observe bridge-related Soroban contract events for a given contract. Supports contract filtering, optional event type, paging cursor, and ledger window parameters.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              contract_id: {
+                type: 'string',
+                description: 'The Soroban contract address (C...) to observe events for.',
+              },
+              event_type: {
+                type: 'string',
+                enum: ['contract', 'system', 'diagnostic'],
+                description: 'Optional event type filter.',
+              },
+              topic_filters: {
+                type: 'array',
+                description:
+                  'Optional array of topic filter arrays. Each inner array is a sequence of base64-encoded topic values or wildcard flags.',
+                items: {
+                  type: 'array',
+                  items: {
+                    type: 'string',
+                  },
+                },
+              },
+              start_ledger: {
+                type: 'number',
+                description: 'Optional ledger sequence at which to start scanning events.',
+              },
+              cursor: {
+                type: 'string',
+                description: 'Optional paging token to resume event retrieval.',
+              },
+              limit: {
+                type: 'number',
+                description: 'Optional maximum number of events to return.',
+              },
+              network: {
+                type: 'string',
+                enum: ['mainnet', 'testnet', 'futurenet', 'custom'],
+                description: 'Override the active network for this call.',
+              },
+            },
+            required: ['contract_id'],
               },
               fields: {
                 type: 'array',
@@ -2068,6 +2126,23 @@ class PulsarServer {
           }
             if (!parsed.success) {
               throw new PulsarValidationError(
+                `Invalid input for fetch_contract_spec`,
+                parsed.error.format()
+              );
+            }
+            const result = await fetchContractSpec(parsed.data);
+            return { content: [{ type: 'text', text: JSON.stringify(result) }] };
+          }
+
+          case 'observe_bridge_events': {
+            const parsed = ObserveBridgeEventsInputSchema.safeParse(args);
+            if (!parsed.success) {
+              throw new PulsarValidationError(
+                `Invalid input for observe_bridge_events`,
+                parsed.error.format()
+              );
+            }
+            const result = await observeBridgeEvents(parsed.data);
                 `Invalid input for simulate_transaction`,
                 parsed.error.format()
               );
@@ -2088,6 +2163,10 @@ class PulsarServer {
           case 'get_contract_storage': {
             const parsed = GetContractStorageInputSchema.safeParse(args);
             if (!parsed.success) {
+              throw new PulsarValidationError(
+                `Invalid input for submit_transaction`,
+                parsed.error.format()
+              );
               throw new PulsarValidationError(`Invalid input for get_contract_storage`, parsed.error.format());
             }
             const result = await getContractStorage(parsed.data);
@@ -2100,6 +2179,7 @@ class PulsarServer {
             const parsed = SimulateTransactionsSequenceInputSchema.safeParse(args);
             if (!parsed.success) {
               throw new PulsarValidationError(
+                `Invalid input for simulate_transaction`,
                 `Invalid input for simulate_transactions_sequence`,
                 parsed.error.format()
               );
