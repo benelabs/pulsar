@@ -11,6 +11,8 @@ const configSchema = z.object({
   stellarSecretKey: z.string().startsWith("S").length(56).optional(),
   stellarCliPath: z.string().default("stellar"),
   logLevel: z.enum(["error", "warn", "info", "debug"]).default("info"),
+  restrictedAddresses: z.string().optional(),
+  restrictedAddressesFile: z.string().optional(),
 });
 
 const rawConfig = {
@@ -20,6 +22,8 @@ const rawConfig = {
   stellarSecretKey: process.env.STELLAR_SECRET_KEY || undefined,
   stellarCliPath: process.env.STELLAR_CLI_PATH || "stellar",
   logLevel: process.env.LOG_LEVEL || "info",
+  restrictedAddresses: process.env.RESTRICTED_ADDRESSES || undefined,
+  restrictedAddressesFile: process.env.RESTRICTED_ADDRESSES_FILE || undefined,
 };
 
 // Validate environment variables
