@@ -319,6 +319,7 @@ export const CalculateDutchAuctionPriceInputSchema = z.object({
   current_timestamp: z.number().int().positive().optional(),
 });
 
+export type SimulateTransactionInput = z.infer<typeof SimulateTransactionInputSchema>;
 export type CalculateDutchAuctionPriceInput = z.infer<typeof CalculateDutchAuctionPriceInputSchema>;
 
 /**
@@ -500,6 +501,89 @@ export type GetAccountHistoryInput = z.infer<typeof GetAccountHistoryInputSchema
 export type DeployContractInput = z.infer<typeof DeployContractInputSchema>;
 
 /**
+ * Recursive schema for claimable balance predicates.
+ */
+const ClaimPredicateSchema: z.ZodTypeAny = z.lazy(() =>
+  z.union([
+    z
+      .object({
+        type: z.literal('unconditional'),
+      })
+      .describe('Claimable immediately'),
+    z.object({
+      type: z.literal('beforeAbsoluteTime'),
+      timestamp: z
+        .number()
+        .int()
+        .describe('Unix timestamp (seconds) before which the balance must be claimed'),
+    }),
+    z.object({
+      type: z.literal('beforeRelativeTime'),
+      seconds: z
+        .number()
+        .int()
+        .describe(
+          'Seconds since the create_claimable_balance operation was applied before which the balance must be claimed'
+        ),
+    }),
+    z
+      .object({
+        type: z.literal('not'),
+        predicate: ClaimPredicateSchema,
+      })
+      .describe('Logical NOT of the nested predicate'),
+    z
+      .object({
+        type: z.literal('and'),
+        predicates: z.array(ClaimPredicateSchema).min(1),
+      })
+      .describe('Logical AND of all nested predicates'),
+    z
+      .object({
+        type: z.literal('or'),
+        predicates: z.array(ClaimPredicateSchema).min(1),
+      })
+      .describe('Logical OR of all nested predicates'),
+  ])
+);
+
+/**
+ * Schema for create_claimable_balance tool
+ *
+ * Inputs:
+ * - asset: Asset to lock (e.g. 'XLM' or 'USDC:GA5Z...')
+ * - amount: Amount to lock (decimal string)
+ * - claimants: Array of { destination, predicate }
+ * - source_account: Optional account paying for the creation
+ * - network: Optional network override
+ */
+export const CreateClaimableBalanceInputSchema = z.object({
+  asset: z
+    .string()
+    .describe("The asset to be locked. Use 'XLM' for native or 'CODE:ISSUER' for issued assets."),
+  amount: z
+    .string()
+    .regex(/^\d+(\.\d+)?$/, 'Must be a valid decimal string')
+    .describe('The amount of the asset to be locked.'),
+  claimants: z
+    .array(
+      z.object({
+        destination: StellarPublicKeySchema.describe('The public key of the claimant'),
+        predicate: ClaimPredicateSchema.optional()
+          .default({ type: 'unconditional' })
+          .describe('The condition that must be met to claim the balance'),
+      })
+    )
+    .min(1)
+    .max(10)
+    .describe('The list of potential claimants and their conditions'),
+  source_account: StellarPublicKeySchema.optional().describe(
+    "The account that will create the claimable balance and pay the reserve. Defaults to the server's configured key if omitted."
+  ),
+  network: NetworkSchema.optional(),
+});
+
+export type CreateClaimableBalanceInput = z.infer<typeof CreateClaimableBalanceInputSchema>;
  * Schema for sign_with_ledger tool
  *
  * Inputs:

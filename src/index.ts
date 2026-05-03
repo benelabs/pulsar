@@ -53,6 +53,7 @@ import { sorobanMath } from './tools/soroban_math.js';
 import { decodeLedgerEntryTool, decodeLedgerEntrySchema } from './tools/decode_ledger_entry.js';
 import { computeVestingSchedule } from './tools/compute_vesting_schedule.js';
 import { deployContract } from './tools/deploy_contract.js';
+import { createClaimableBalance } from './tools/create_claimable_balance.js';
 import { createTrustline } from './tools/create_trustline.js';
 import { exportAiSchemas } from './tools/export_ai_schemas.js';
 import { estimateTokenFees } from './tools/estimate_token_fees.js';
@@ -100,6 +101,7 @@ import {
   SorobanMathInputSchema,
   ComputeVestingScheduleInputSchema,
   DeployContractInputSchema,
+  CreateClaimableBalanceInputSchema,
   SignWithLedgerInputSchema,
   InspectXdrInputSchema,
 } from './schemas/tools.js';
@@ -684,6 +686,50 @@ class PulsarServer {
                 type: 'string',
                 description: 'Principal amount as fixed-point string (compound_interest).',
               },
+            },
+            required: ['mode', 'source_account'],
+          },
+        },
+        {
+          name: 'create_claimable_balance',
+          description:
+            'Builds a Stellar transaction to create a claimable balance with custom claimants and predicates. ' +
+            'Supports complex conditions like relative/absolute time locks and logical AND/OR/NOT nesting. ' +
+            'Returns the unsigned transaction XDR.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              asset: {
+                type: 'string',
+                description: "Asset to lock (e.g. 'XLM' or 'USDC:GA5Z...')",
+              },
+              amount: {
+                type: 'string',
+                description: 'Amount of the asset to lock.',
+              },
+              claimants: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    destination: {
+                      type: 'string',
+                      description: 'Stellar public key of the claimant',
+                    },
+                    predicate: {
+                      type: 'object',
+                      description:
+                        'Recursive predicate logic (unconditional, beforeAbsoluteTime, beforeRelativeTime, not, and, or)',
+                    },
+                  },
+                  required: ['destination'],
+                },
+                minItems: 1,
+              },
+              source_account: {
+                type: 'string',
+                description:
+                  'Optional: Stellar public key creating the balance. Defaults to configured key.',
               rate_bps: {
                 type: 'number',
                 description: 'Annual rate in basis points, e.g. 500 = 5% (compound_interest).',
@@ -1038,6 +1084,12 @@ class PulsarServer {
               network: {
                 type: 'string',
                 enum: ['mainnet', 'testnet', 'futurenet', 'custom'],
+                description: 'Override the configured network for this call.',
+              },
+            },
+            required: ['asset', 'amount', 'claimants'],
+          },
+        },
                 description: 'Stellar network passphrase to use.',
               },
             },
@@ -2499,6 +2551,23 @@ class PulsarServer {
             };
           }
 
+      try {
+        // Rate Limiting Middleware
+        const argsObj = args as Record<string, unknown>;
+        const requestObj = request as Record<string, unknown>;
+        const clientId =
+          (argsObj?.client_id as string) ||
+          ((requestObj.meta as Record<string, unknown>)?.client_id as string) ||
+          'default';
+        if (!rateLimiter.isAllowed(clientId)) {
+          const stats = rateLimiter.getStats(clientId);
+          throw new PulsarRateLimitError(`Rate limit exceeded for client: ${clientId}.`, {
+            limit: config.rateLimitMax,
+            window_ms: config.rateLimitWindowMs,
+            tokens_remaining: stats.remaining,
+            retry_after_ms: Math.ceil(config.rateLimitWindowMs / config.rateLimitMax),
+          });
+        }
           case 'manage_dao_treasury': {
             const parsed = ManageDaoTreasuryInputSchema.safeParse(args);
             if (!parsed.success) {
@@ -2859,6 +2928,20 @@ class PulsarServer {
               throw new PulsarValidationError(`Invalid input for inspect_xdr`, parsed.error.format());
             }
             const result = await inspectXdr(parsed.data);
+            return {
+              content: [{ type: 'text', text: JSON.stringify(result) }],
+            };
+          }
+
+          case 'create_claimable_balance': {
+            const parsed = CreateClaimableBalanceInputSchema.safeParse(args);
+            if (!parsed.success) {
+              throw new PulsarValidationError(
+                `Invalid input for create_claimable_balance`,
+                parsed.error.format()
+              );
+            }
+            const result = await createClaimableBalance(parsed.data);
             return {
               content: [{ type: 'text', text: JSON.stringify(result) }],
             };
