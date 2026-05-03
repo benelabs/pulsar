@@ -1,10 +1,17 @@
-import { z } from "zod";
+import { z } from 'zod';
 
+import { FetchContractSpecInputSchema } from '../schemas/tools.js';
+import { runStellarCli } from '../services/stellar-cli.js';
+import { getRpcUrl } from '../services/soroban-rpc.js';
+import { config } from '../config.js';
+import { PulsarValidationError } from '../errors.js';
+export type FetchContractSpecInput = z.infer<typeof FetchContractSpecInputSchema>;
 import { ContractIdSchema } from "../types.js";
 import { runStellarCli } from "../services/stellar-cli.js";
 import { getRpcUrl } from "../services/soroban-rpc.js";
 import { config } from "../config.js";
 import { PulsarValidationError } from "../errors.js";
+import { normalizeAddress, AddressCache } from "../utils/address.js";
 
 export const fetchContractSpecSchema = z.object({
   contract_id: ContractIdSchema,
@@ -37,38 +44,55 @@ export interface FetchContractSpecOutput {
   raw_xdr: string;
 }
 
+// Contract specs are immutable once deployed — a 5-minute TTL avoids
+// redundant CLI subprocess spawns for repeated lookups of the same contract.
+export const contractSpecCache = new AddressCache<FetchContractSpecOutput>(5 * 60_000);
+
 export async function fetchContractSpec(
   input: FetchContractSpecInput
 ): Promise<FetchContractSpecOutput> {
   const network = input.network ?? config.stellarNetwork;
+  const contract_id = normalizeAddress(input.contract_id);
+
+  const cacheKey = `${network}:${contract_id}`;
+  const cached = contractSpecCache.get(cacheKey);
+  if (cached) return cached;
+
   const rpcUrl = getRpcUrl(network);
 
-  // Build args as an array — no shell interpolation
   const args = [
+    'contract',
+    'info',
+    'interface',
+    '--contract-id',
+    input.contract_id,
+    '--rpc-url',
     "contract",
     "info",
     "interface",
     "--contract-id",
-    input.contract_id,
+    contract_id,
     "--rpc-url",
     rpcUrl,
-    "--output",
-    "json",
+    '--output',
+    'json',
   ];
 
   const { stdout } = await runStellarCli(args);
 
-  // The CLI outputs a JSON array of spec entries
   let raw: unknown;
   try {
     raw = JSON.parse(stdout.trim());
   } catch {
-    throw new PulsarValidationError(`Failed to parse stellar CLI output as JSON`, { stdout: stdout.slice(0, 200) });
+    throw new PulsarValidationError(`Failed to parse stellar CLI output as JSON`, {
+      stdout: stdout.slice(0, 200),
+    });
   }
 
-  return parseCliSpec(raw, input.contract_id, network);
+  const result = parseCliSpec(raw, contract_id, network);
+  contractSpecCache.set(cacheKey, result);
+  return result;
 }
-
 
 // ---------------------------------------------------------------------------
 // Parse the CLI JSON output into our typed response shape
@@ -79,20 +103,21 @@ function parseCliSpec(raw: unknown, contractId: string, network: string): FetchC
 
   const functions: ContractFunction[] = [];
   const events: ContractEvent[] = [];
-  let raw_xdr = "";
+  let raw_xdr = '';
 
   for (const entry of entries) {
-    if (!entry || typeof entry !== "object") continue;
+    if (!entry || typeof entry !== 'object') continue;
     const e = entry as Record<string, unknown>;
 
     // Top-level raw XDR if present
+    if (typeof e['xdr'] === 'string' && !raw_xdr) raw_xdr = e['xdr'] as string;
     if (typeof e["xdr"] === "string" && !raw_xdr) raw_xdr = e["xdr"] as string;
 
-    const kind = e["type"] ?? e["kind"];
+    const kind = e['type'] ?? e['kind'];
 
-    if (kind === "function" || "inputs" in e) {
+    if (kind === 'function' || 'inputs' in e) {
       functions.push(parseFunction(e));
-    } else if (kind === "event") {
+    } else if (kind === 'event') {
       events.push(parseEvent(e));
     }
   }
@@ -101,41 +126,45 @@ function parseCliSpec(raw: unknown, contractId: string, network: string): FetchC
 }
 
 function parseFunction(e: Record<string, unknown>): ContractFunction {
-  const inputs = Array.isArray(e["inputs"])
-    ? (e["inputs"] as Record<string, unknown>[]).map((p) => ({
-        name: String(p["name"] ?? ""),
-        type: stringifyType(p["type"]),
+  const inputs = Array.isArray(e['inputs'])
+    ? (e['inputs'] as Record<string, unknown>[]).map((p) => ({
+        name: String(p['name'] ?? ''),
+        type: stringifyType(p['type']),
       }))
     : [];
 
-  const outputs = Array.isArray(e["outputs"])
-    ? (e["outputs"] as Record<string, unknown>[]).map((p) => ({
-        type: stringifyType(p["type"]),
+  const outputs = Array.isArray(e['outputs'])
+    ? (e['outputs'] as Record<string, unknown>[]).map((p) => ({
+        type: stringifyType(p['type']),
       }))
     : [];
 
   return {
-    name: String(e["name"] ?? ""),
-    ...(e["doc"] ? { doc: String(e["doc"]) } : {}),
+    name: String(e['name'] ?? ''),
+    ...(e['doc'] ? { doc: String(e['doc']) } : {}),
     inputs,
     outputs,
   };
 }
 
 function parseEvent(e: Record<string, unknown>): ContractEvent {
-  const topics = Array.isArray(e["topics"])
-    ? (e["topics"] as Record<string, unknown>[]).map((t) => ({ type: stringifyType(t["type"]) }))
+  const topics = Array.isArray(e['topics'])
+    ? (e['topics'] as Record<string, unknown>[]).map((t) => ({ type: stringifyType(t['type']) }))
     : undefined;
 
-  const data = e["data"]
-    ? { type: stringifyType((e["data"] as Record<string, unknown>)["type"]) }
+  const data = e['data']
+    ? { type: stringifyType((e['data'] as Record<string, unknown>)['type']) }
     : undefined;
 
-  return { name: String(e["name"] ?? ""), ...(topics ? { topics } : {}), ...(data ? { data } : {}) };
+  return {
+    name: String(e['name'] ?? ''),
+    ...(topics ? { topics } : {}),
+    ...(data ? { data } : {}),
+  };
 }
 
 function stringifyType(t: unknown): string {
-  if (typeof t === "string") return t;
-  if (t && typeof t === "object") return JSON.stringify(t);
-  return String(t ?? "unknown");
+  if (typeof t === 'string') return t;
+  if (t && typeof t === 'object') return JSON.stringify(t);
+  return String(t ?? 'unknown');
 }

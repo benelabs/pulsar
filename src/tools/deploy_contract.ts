@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { randomBytes } from 'node:crypto';
 
 import {
   TransactionBuilder,
@@ -9,20 +9,17 @@ import {
   xdr,
   nativeToScVal,
   Networks,
-} from "@stellar/stellar-sdk";
+} from '@stellar/stellar-sdk';
 
-import { getHorizonServer } from "../services/horizon.js";
-import { config } from "../config.js";
-import { DeployContractInputSchema } from "../schemas/tools.js";
-import type { McpToolHandler } from "../types.js";
-import {
-  PulsarValidationError,
-  PulsarNetworkError,
-} from "../errors.js";
-import logger from "../logger.js";
+import { getHorizonServer } from '../services/horizon.js';
+import { config } from '../config.js';
+import { DeployContractInputSchema } from '../schemas/tools.js';
+import type { McpToolHandler } from '../types.js';
+import { PulsarValidationError, PulsarNetworkError } from '../errors.js';
+import logger from '../logger.js';
 
 export interface DeployContractOutput {
-  mode: "direct" | "factory";
+  mode: 'direct' | 'factory';
   transaction_xdr: string;
   predicted_contract_id?: string;
   network: string;
@@ -32,11 +29,11 @@ export interface DeployContractOutput {
 /** Resolve the stellar-base network passphrase. */
 function resolveNetworkPassphrase(network: string): string {
   switch (network) {
-    case "mainnet":
+    case 'mainnet':
       return Networks.PUBLIC;
-    case "futurenet":
+    case 'futurenet':
       return Networks.FUTURENET;
-    case "testnet":
+    case 'testnet':
     default:
       return Networks.TESTNET;
   }
@@ -46,22 +43,17 @@ function resolveNetworkPassphrase(network: string): string {
  * Compute the deterministic contract address for a direct deployment.
  * Uses the same hashing algorithm as the Soroban host.
  */
-function computeContractId(
-  networkPassphrase: string,
-  sourceAccount: string,
-  salt: Buffer
-): string {
+function computeContractId(networkPassphrase: string, sourceAccount: string, salt: Buffer): string {
   const networkId = hash(Buffer.from(networkPassphrase));
   const preimage = xdr.HashIdPreimage.envelopeTypeContractId(
     new xdr.HashIdPreimageContractId({
       networkId,
-      contractIdPreimage:
-        xdr.ContractIdPreimage.contractIdPreimageFromAddress(
-          new xdr.ContractIdPreimageFromAddress({
-            address: new Address(sourceAccount).toScAddress(),
-            salt,
-          })
-        ),
+      contractIdPreimage: xdr.ContractIdPreimage.contractIdPreimageFromAddress(
+        new xdr.ContractIdPreimageFromAddress({
+          address: new Address(sourceAccount).toScAddress(),
+          salt,
+        })
+      ),
     })
   );
   return StrKey.encodeContract(hash(preimage.toXDR()));
@@ -70,16 +62,11 @@ function computeContractId(
 /**
  * Convert a typed JSON argument to an xdr.ScVal.
  */
-function buildScVal(arg: {
-  type?: string;
-  value?: unknown;
-}): xdr.ScVal {
+function buildScVal(arg: { type?: string; value?: unknown }): xdr.ScVal {
   const { type, value } = arg;
 
   if (value === undefined) {
-    throw new PulsarValidationError(
-      "deploy_args items must have a 'value' property"
-    );
+    throw new PulsarValidationError("deploy_args items must have a 'value' property");
   }
 
   if (!type) {
@@ -100,13 +87,13 @@ function buildScVal(arg: {
  * Returns the unsigned transaction XDR and, for direct mode, the predicted
  * deterministic contract address.
  */
-export const deployContract: McpToolHandler<
-  typeof DeployContractInputSchema
-> = async (input: unknown) => {
+export const deployContract: McpToolHandler<typeof DeployContractInputSchema> = async (
+  input: unknown
+) => {
   const validatedInput = DeployContractInputSchema.safeParse(input);
   if (!validatedInput.success) {
     throw new PulsarValidationError(
-      "Invalid input for deploy_contract",
+      'Invalid input for deploy_contract',
       validatedInput.error.format()
     );
   }
@@ -122,22 +109,19 @@ export const deployContract: McpToolHandler<
   const horizonServer = getHorizonServer(network);
   let account;
   try {
-    logger.debug(
-      { account: sourceAccount, network },
-      "Loading source account for deployment"
-    );
+    logger.debug({ account: sourceAccount, network }, 'Loading source account for deployment');
     account = await horizonServer.loadAccount(sourceAccount);
-  } catch (err: any) {
-    if (err.response?.status === 404) {
+  } catch (err: unknown) {
+    const error = err as { response?: { status?: number }; message?: string };
+    if (error.response?.status === 404) {
       throw new PulsarNetworkError(
         `Source account ${sourceAccount} not found. Fund the account before deploying.`,
         { status: 404, account_id: sourceAccount }
       );
     }
-    throw new PulsarNetworkError(
-      `Failed to load source account: ${err.message}`,
-      { originalError: err }
-    );
+    throw new PulsarNetworkError(`Failed to load source account: ${error.message || String(err)}`, {
+      originalError: err,
+    });
   }
 
   // ------------------------------------------------------------------
@@ -146,37 +130,27 @@ export const deployContract: McpToolHandler<
   let operation: xdr.Operation;
   let predictedContractId: string | undefined;
 
-  if (data.mode === "direct") {
+  if (data.mode === 'direct') {
     if (!data.wasm_hash) {
-      throw new PulsarValidationError(
-        "wasm_hash is required for direct deployment mode"
-      );
+      throw new PulsarValidationError('wasm_hash is required for direct deployment mode');
     }
 
-    const wasmHash = Buffer.from(data.wasm_hash, "hex");
+    const wasmHash = Buffer.from(data.wasm_hash, 'hex');
     if (wasmHash.length !== 32) {
-      throw new PulsarValidationError(
-        "wasm_hash must be a 64-character hex string (32 bytes)"
-      );
+      throw new PulsarValidationError('wasm_hash must be a 64-character hex string (32 bytes)');
     }
 
-    const salt = data.salt
-      ? Buffer.from(data.salt, "hex")
-      : randomBytes(32);
+    const salt = data.salt ? Buffer.from(data.salt, 'hex') : randomBytes(32);
     if (salt.length !== 32) {
       throw new PulsarValidationError(
-        "salt must be a 64-character hex string (32 bytes) if provided"
+        'salt must be a 64-character hex string (32 bytes) if provided'
       );
     }
 
-    predictedContractId = computeContractId(
-      networkPassphrase,
-      sourceAccount,
-      salt
-    );
+    predictedContractId = computeContractId(networkPassphrase, sourceAccount, salt);
     logger.debug(
       { predictedContractId, wasmHash: data.wasm_hash },
-      "Building direct contract deployment"
+      'Building direct contract deployment'
     );
 
     operation = Operation.createCustomContract({
@@ -188,12 +162,12 @@ export const deployContract: McpToolHandler<
     // factory mode
     if (!data.factory_contract_id) {
       throw new PulsarValidationError(
-        "factory_contract_id is required for factory deployment mode"
+        'factory_contract_id is required for factory deployment mode'
       );
     }
 
     const args = (data.deploy_args ?? []).map(buildScVal);
-    const deployFunction = data.deploy_function ?? "deploy";
+    const deployFunction = data.deploy_function ?? 'deploy';
 
     logger.debug(
       {
@@ -201,7 +175,7 @@ export const deployContract: McpToolHandler<
         deployFunction,
         argCount: args.length,
       },
-      "Building factory contract deployment"
+      'Building factory contract deployment'
     );
 
     operation = Operation.invokeContractFunction({
