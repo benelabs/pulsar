@@ -1,6 +1,9 @@
 import { SorobanRpc } from '@stellar/stellar-sdk';
 import { SorobanRpc, Networks, TransactionBuilder, xdr } from '@stellar/stellar-sdk';
 
+import { config } from "../config.js";
+import { PulsarValidationError } from "../errors.js";
+import { accessControl } from "./access-control.js";
 import { config } from '../config.js';
 import { PulsarValidationError } from '../errors.js';
 
@@ -25,6 +28,14 @@ import { getSorobanServer as routerGetSorobanServer, getBestRpcUrl as routerGetB
  */
 export function getRpcUrl(network?: string): string {
   const net = network ?? config.stellarNetwork;
+  if (net === "custom") {
+    if (!config.sorobanRpcUrl) throw new PulsarValidationError("SOROBAN_RPC_URL must be set for custom network");
+    accessControl.assertAllowed(config.sorobanRpcUrl);
+    return config.sorobanRpcUrl;
+  }
+  const url = NETWORK_RPC_URLS[net] ?? NETWORK_RPC_URLS["testnet"];
+  accessControl.assertAllowed(url);
+  return url;
   if (net === 'custom') {
     if (!config.sorobanRpcUrl)
       throw new PulsarValidationError('SOROBAN_RPC_URL must be set for custom network');
