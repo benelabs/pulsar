@@ -21,6 +21,7 @@ const configSchema = z.object({
   logLevel: z.enum(['error', 'warn', 'info', 'debug']).default('info'),
   stellarSecretKey: z.string().startsWith("S").length(56).optional(),
   stellarCliPath: z.string().default("stellar"),
+  logLevel: z.enum(["error", "warn", "info", "debug", "trace"]).default("info"),
   logLevel: z.enum(["error", "warn", "info", "debug"]).default("info"),
   metricsEnabled: z.boolean().default(true),
   metricsPort: z.number().int().min(1).max(65535).default(9090),

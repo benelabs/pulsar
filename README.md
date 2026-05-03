@@ -312,7 +312,7 @@ STELLAR_SECRET_KEY=SXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 STELLAR_CLI_PATH=stellar
 
 # ─── Server ─────────────────────────────────────────────────────────────────
-# Log level: error | warn | info | debug
+# Log level: error | warn | info | debug | trace
 LOG_LEVEL=info
 
 # ─── Metrics (optional) ──────────────────────────────────────────────────────
@@ -328,6 +328,8 @@ METRICS_PORT=9090
 # Maximum acceptable latency for an RPC endpoint in milliseconds before marking it unhealthy (default: 2000)
 # RPC_LATENCY_THRESHOLD_MS=2000
 ```
+
+Logs are emitted as structured JSON to stderr to keep MCP stdout clean.
 
 > **Security note:** `STELLAR_SECRET_KEY` is optional and only used by `submit_transaction`. If not set, that tool will return an unsigned XDR blob that you can sign externally. Never use a funded Mainnet key during development — use a throwaway Testnet keypair funded via [Friendbot](https://friendbot.stellar.org).
 
