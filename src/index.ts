@@ -26,6 +26,7 @@ import { sorobanMath } from './tools/soroban_math.js';
 import { decodeLedgerEntryTool, decodeLedgerEntrySchema } from './tools/decode_ledger_entry.js';
 import { computeVestingSchedule } from './tools/compute_vesting_schedule.js';
 import { deployContract } from './tools/deploy_contract.js';
+import { getContractStorage } from "./tools/get_contract_storage.js";
 import { getLiquidityPool, GetLiquidityPoolInputSchema } from './tools/get_liquidity_pool.js';
 import { getFeeStats, GetFeeStatsInputSchema } from './tools/get_fee_stats.js';
 import { optimizeContractBytecode } from './tools/optimize_contract_bytecode.js';
@@ -50,6 +51,7 @@ import {
   SorobanMathInputSchema,
   ComputeVestingScheduleInputSchema,
   DeployContractInputSchema,
+  GetContractStorageInputSchema,
   OptimizeContractBytecodeInputSchema,
   GetProtocolVersionInputSchema,
   ExportDataInputSchema,
@@ -305,6 +307,12 @@ class PulsarServer {
           },
         },
         {
+          name: 'get_contract_storage',
+          description:
+            'Fetch a contract storage entry by durability (instance, persistent, temporary) and key. Returns ledger entry XDR plus TTL metadata when available.',
+          inputSchema: {
+            type: 'object',
+            properties: {
           name: 'simulate_transaction',
           description:
             'Simulates a transaction on the Soroban RPC and returns results, footprint, fees, and events.',
@@ -321,11 +329,26 @@ class PulsarServer {
                 type: 'string',
                 description: 'The Soroban contract address (C...)',
               },
+              storage_type: {
+                type: 'string',
+                enum: ['instance', 'persistent', 'temporary'],
+                description: 'Which storage durability to read.',
+              },
+              key: {
+                type: 'object',
+                description:
+                  'Typed SCVal key for persistent/temporary storage. Example: { type: "symbol", value: "Balance" }',
+              },
               network: {
                 type: 'string',
                 enum: ['mainnet', 'testnet', 'futurenet', 'custom'],
                 description: 'Override the configured network for this call.',
               },
+            },
+            required: ['contract_id', 'storage_type'],
+          },
+        },
+        {
               format: {
                 type: 'string',
                 enum: ['markdown', 'text'],
@@ -1075,6 +1098,17 @@ class PulsarServer {
             const parsed = SubmitTransactionInputSchema.parse(args);
             const result = await submitTransaction(parsed);
             return { content: [{ type: 'text', text: JSON.stringify(result) }] };
+          }
+
+          case 'get_contract_storage': {
+            const parsed = GetContractStorageInputSchema.safeParse(args);
+            if (!parsed.success) {
+              throw new PulsarValidationError(`Invalid input for get_contract_storage`, parsed.error.format());
+            }
+            const result = await getContractStorage(parsed.data);
+            return {
+              content: [{ type: 'text', text: JSON.stringify(result) }],
+            };
           }
 
           case 'emergency_pause': {
