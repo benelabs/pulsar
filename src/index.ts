@@ -101,6 +101,10 @@ import {
   ComputeVestingScheduleInputSchema,
   DeployContractInputSchema,
   SignWithLedgerInputSchema,
+  InspectXdrInputSchema,
+} from './schemas/tools.js';
+import { signWithLedger } from './tools/sign_with_ledger.js';
+import { inspectXdr } from './tools/inspect_xdr.js';
 } from './schemas/tools.js';
 import { signWithLedger } from './tools/sign_with_ledger.js';
   CreateTrustlineInputSchema,
@@ -775,6 +779,8 @@ class PulsarServer {
               },
               derivation_path: {
                 type: 'string',
+                default: "44'/148'/0'",
+                description: "BIP44 derivation path (e.g. 44'/148'/0').",
                 default: "m/44'/148'/0'",
                 description: "BIP44 derivation path (e.g. m/44'/148'/0').",
           name: 'create_trustline',
@@ -1038,6 +1044,11 @@ class PulsarServer {
             required: ['xdr'],
           },
         },
+        {
+          name: 'inspect_xdr',
+          description:
+            'Analyzes a Stellar transaction XDR for potential security risks before simulation or submission. ' +
+            'Flags dangerous operations like account merges, signer changes, or excessive fees.',
       ],
     }));
                 description: 'Override the configured network for this call.',
@@ -1055,6 +1066,7 @@ class PulsarServer {
             properties: {
               xdr: {
                 type: 'string',
+                description: 'Base64-encoded transaction envelope XDR.',
                 description: 'Base64-encoded XDR of the ledger entry (key or value).',
               },
               entry_type: {
@@ -1286,6 +1298,10 @@ class PulsarServer {
               network: {
                 type: 'string',
                 enum: ['mainnet', 'testnet', 'futurenet', 'custom'],
+                description: 'Stellar network passphrase to use.',
+              },
+            },
+            required: ['xdr'],
                 description: 'Network to use when fetching spec via contract_id.',
               },
               class_name: {
@@ -2821,6 +2837,28 @@ class PulsarServer {
               throw new PulsarValidationError(`Invalid input for sign_with_ledger`, parsed.error.format());
             }
             const result = await signWithLedger(parsed.data);
+            return {
+              content: [{ type: 'text', text: JSON.stringify(result) }],
+            };
+          }
+
+          case 'sign_with_ledger': {
+            const parsed = SignWithLedgerInputSchema.safeParse(args);
+            if (!parsed.success) {
+              throw new PulsarValidationError(`Invalid input for sign_with_ledger`, parsed.error.format());
+            }
+            const result = await signWithLedger(parsed.data);
+            return {
+              content: [{ type: 'text', text: JSON.stringify(result) }],
+            };
+          }
+
+          case 'inspect_xdr': {
+            const parsed = InspectXdrInputSchema.safeParse(args);
+            if (!parsed.success) {
+              throw new PulsarValidationError(`Invalid input for inspect_xdr`, parsed.error.format());
+            }
+            const result = await inspectXdr(parsed.data);
             return {
               content: [{ type: 'text', text: JSON.stringify(result) }],
             };

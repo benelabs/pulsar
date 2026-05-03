@@ -520,6 +520,16 @@ export const SignWithLedgerInputSchema = z.object({
 
 export type SignWithLedgerInput = z.infer<typeof SignWithLedgerInputSchema>;
 
+/**
+ * Schema for inspect_xdr tool
+ */
+export const InspectXdrInputSchema = z.object({
+  xdr: XdrBase64Schema,
+  network: NetworkSchema.optional(),
+});
+
+export type InspectXdrInput = z.infer<typeof InspectXdrInputSchema>;
+
  * Schema for create_trustline tool
  *
  * Inputs:

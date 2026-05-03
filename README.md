@@ -44,6 +44,7 @@
   - [compute_vesting_schedule](#compute_vesting_schedule)
   - [deploy_contract](#deploy_contract)
   - [sign_with_ledger](#sign_with_ledger)
+  - [inspect_xdr](#inspect_xdr)
   - [export_ai_schemas](#export_ai_schemas)
   - [get_price_feed](#get_price_feed)
   - [calculate_dutch_auction_price](#calculate_dutch_auction_price)
@@ -143,6 +144,7 @@ There is currently **no community-driven MCP server** for Stellar, which means:
 | **Soroban Math** | Fixed-point arithmetic, statistical functions (mean, std dev, TWAP), and financial math (compound interest, basis points) compatible with Soroban's 7-decimal integer model |
 | **Contract Deployment** | Deploy Soroban smart contracts via built-in deployer or factory contracts |
 | **Hardware Wallet Signing** | Securely sign transactions using a physical Ledger device |
+| **XDR Inspection** | Pre-validate XDR blobs for security risks and red flags before simulation |
 | **Bridge Event Observation** | Observe Soroban contract events emitted by cross-chain bridge contracts and filter them by contract, type, or topics |
 | **Price Feed Queries** | Query decentralized oracle contracts for real-time asset prices |
 | **Protocol Version Info** | Track network upgrades and feature availability across different networks |
@@ -1421,6 +1423,29 @@ Samples recent ledgers from Horizon and reports the average, minimum, maximum, a
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
+| `xdr` | `string` | Yes | Base64-encoded unsigned transaction envelope XDR |
+| `derivation_path` | `string` | No | BIP44 derivation path (default: `44'/148'/0'`) |
+| `network` | `string` | No | Stellar network override (`mainnet`, `testnet`, `futurenet`) |
+
+**Output:**
+
+```jsonc
+{
+  "status": "SUCCESS",
+  "signed_xdr": "AAAAAgAAAAE...",
+  "network": "testnet"
+}
+```
+
+**Example prompt:**
+
+> _"Sign this transaction XDR with my Ledger: `AAAA...`"_
+
+---
+
+### `inspect_xdr`
+
+Analyzes a Stellar transaction XDR for potential security risks before simulation or submission. Flags dangerous operations like account merges, signer changes, or excessive fees.
 | `start_price` | `number` | Yes | Initial price of the asset |
 | `reserve_price` | `number` | Yes | Minimum price (bottom of the curve) |
 | `start_timestamp` | `number` | Yes | Unix timestamp when price begins to decay |
@@ -1547,6 +1572,8 @@ Perform safe integer arithmetic with overflow/underflow protection and Soroban-c
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
+| `xdr` | `string` | Yes | Base64-encoded transaction envelope XDR |
+| `network` | `string` | No | Stellar network override (`mainnet`, `testnet`, `futurenet`) |
 | `xdr` | `string` | Yes | Base64-encoded unsigned transaction envelope XDR |
 | `derivation_path` | `string` | No | BIP44 derivation path (default: `m/44'/148'/0'`) |
 | `network` | `string` | No | Stellar network override (`mainnet`, `testnet`, `futurenet`) |
@@ -1594,6 +1621,18 @@ Exchange one asset for another using the AMM pool. The tool builds a transaction
 
 ```jsonc
 {
+  "is_safe": false,
+  "risk_level": "HIGH",
+  "findings": [
+    {
+      "level": "HIGH",
+      "type": "ACCOUNT_MERGE",
+      "message": "DANGEROUS: This operation will permanently delete account..."
+    }
+  ],
+  "operation_count": 1,
+  "total_fee": "100",
+  "summary": "Transaction with 1 operation(s): accountMerge."
   "network": "testnet",
   "sample_size": 10,
   "average_consensus_seconds": 5.123,
@@ -1922,6 +1961,7 @@ Query the current state of an AMM pool, including reserves for both assets and t
 
 **Example prompt:**
 
+> _"Is this XDR safe to sign? `AAAA...`"_
 > _"Sign this transaction XDR with my Ledger: `AAAA...`"_
 > _"Get the current USD/XLM price from oracle contract `CA3D...` on testnet."_
 > _"Get pool information for the XLM/USDC pair on AMM contract `CA3D...`."_
