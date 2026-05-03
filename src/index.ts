@@ -51,6 +51,7 @@ import { sorobanMath } from './tools/soroban_math.js';
 import { decodeLedgerEntryTool, decodeLedgerEntrySchema } from './tools/decode_ledger_entry.js';
 import { computeVestingSchedule } from './tools/compute_vesting_schedule.js';
 import { deployContract } from './tools/deploy_contract.js';
+import { createTrustline } from './tools/create_trustline.js';
 import { exportAiSchemas } from './tools/export_ai_schemas.js';
 import { estimateTokenFees } from './tools/estimate_token_fees.js';
 import { getOrderbook } from './tools/get_orderbook.js';
@@ -97,6 +98,7 @@ import {
   SorobanMathInputSchema,
   ComputeVestingScheduleInputSchema,
   DeployContractInputSchema,
+  CreateTrustlineInputSchema,
   ExportAiSchemasInputSchema,
   ObserveBridgeEventsInputSchema,
   EstimateTokenFeesInputSchema,
@@ -731,6 +733,28 @@ class PulsarServer {
           },
         },
         {
+          name: 'create_trustline',
+          description:
+            'Builds a Stellar transaction for creating a trustline, allowing an account to hold an issued asset. ' +
+            'Returns the unsigned transaction XDR. A trustline must be created before an account can receive or hold an issued asset (anything other than XLM).',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              source_account: {
+                type: 'string',
+                description: 'The Stellar public key (G...) that will hold the trustline.',
+              },
+              asset_code: {
+                type: 'string',
+                description: 'Asset code (e.g., USDC). Max 12 characters.',
+              },
+              asset_issuer: {
+                type: 'string',
+                description: 'Stellar public key (G...) of the asset issuer.',
+              },
+              limit: {
+                type: 'string',
+                description: 'Optional: Maximum amount of the asset the account can hold (e.g., "1000.50"). Defaults to max allowed.',
           name: 'deploy_contract',
           description: 'Build deploy transaction.',
           inputSchema: {
@@ -1756,6 +1780,11 @@ class PulsarServer {
                 description: 'Override the configured network for this call.',
               },
             },
+            required: ['source_account', 'asset_code', 'asset_issuer'],
+          },
+        },
+      ],
+    }));
             required: ['selling_asset_code', 'buying_asset_code'],
             required: ['contract_id', 'base_asset', 'quote_asset'],
               additional_keys: {
@@ -2705,6 +2734,17 @@ class PulsarServer {
               throw new PulsarValidationError(`Invalid input for export_ai_schemas`, parsed.error.format());
             }
             const result = await exportAiSchemas(parsed.data);
+            return {
+              content: [{ type: 'text', text: JSON.stringify(result) }],
+            };
+          }
+
+          case 'create_trustline': {
+            const parsed = CreateTrustlineInputSchema.safeParse(args);
+            if (!parsed.success) {
+              throw new PulsarValidationError(`Invalid input for create_trustline`, parsed.error.format());
+            }
+            const result = await createTrustline(parsed.data);
             return {
               content: [{ type: 'text', text: JSON.stringify(result) }],
             };
