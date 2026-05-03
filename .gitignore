@@ -29,3 +29,9 @@ coverage/
 *.njsproj
 *.sln
 *.sw?
+
+# rust
+target/
+contracts/target/
+CLAUDE.md
+plan.md
