@@ -346,6 +346,67 @@ export const DeployContractInputSchema = z.object({
 export type DeployContractInput = z.infer<typeof DeployContractInputSchema>;
 
 /**
+ * Schema for manage_dao_treasury tool
+ *
+ * Manages DAO treasury operations including deposits, allocations,
+ * and budget tracking. Supports multiple treasury accounts with role-based access.
+ *
+ * Inputs:
+ * - action: 'deposit' | 'allocate' | 'spend' | 'balance' | 'history'
+ * - treasury_address: Soroban/Stellar address of the treasury contract or account (required)
+ * - amount: Amount to deposit/allocate/spend (required for deposit/allocate/spend)
+ * - asset: Asset code (e.g., 'XLM', 'USDC') - defaults to XLM
+ * - recipient: Recipient address for allocations/spending (required for allocate/spend)
+ * - description: Memo/description for the transaction
+ * - budget_category: Category for allocation (e.g., 'grants', 'operations', 'development')
+ * - network: Optional network override
+ */
+export const ManageDaoTreasuryInputSchema = z.object({
+  action: z
+    .enum(['deposit', 'allocate', 'spend', 'balance', 'history'])
+    .describe(
+      'Treasury operation: deposit funds, allocate budget, spend/transfer, check balance, view history'
+    ),
+  treasury_address: ContractIdSchema.or(StellarPublicKeySchema).describe(
+    'The treasury contract ID (C...) or account (G...)'
+  ),
+  amount: z
+    .string()
+    .regex(/^\d+(\.\d{1,7})?$/, {
+      message: 'Amount must be a positive decimal string (max 7 decimal places)',
+    })
+    .optional()
+    .describe('Amount to deposit, allocate, or spend'),
+  asset: z
+    .string()
+    .length(3, { message: 'Asset code must be 3-12 characters' })
+    .max(12)
+    .optional()
+    .default('XLM')
+    .describe("Asset code (e.g., 'XLM', 'USDC', 'TEST')"),
+  recipient: StellarPublicKeySchema.or(ContractIdSchema)
+    .optional()
+    .describe('Recipient address for allocations or spending'),
+  description: z
+    .string()
+    .max(256, { message: 'Description must not exceed 256 characters' })
+    .optional()
+    .describe('Memo/description for the transaction'),
+  budget_category: z
+    .enum(['grants', 'operations', 'development', 'marketing', 'legal', 'other'])
+    .optional()
+    .describe('Budget category for allocation'),
+  limit: z
+    .number()
+    .int()
+    .positive()
+    .max(100)
+    .optional()
+    .describe('Max number of history entries to return (default: 10)'),
+  network: NetworkSchema.optional(),
+});
+
+export type ManageDaoTreasuryInput = z.infer<typeof ManageDaoTreasuryInputSchema>;
  * Schema for compute_interest_rates tool
  *
  * Inputs:

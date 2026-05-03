@@ -28,6 +28,7 @@ import { sorobanMath } from './tools/soroban_math.js';
 import { decodeLedgerEntryTool, decodeLedgerEntrySchema } from './tools/decode_ledger_entry.js';
 import { computeVestingSchedule } from './tools/compute_vesting_schedule.js';
 import { deployContract } from './tools/deploy_contract.js';
+import { manageDaoTreasury } from './tools/manage_dao_treasury.js';
 import { computeInterestRates, calculateBorrowingCapacity } from './tools/lending_compute.js';
 import { trackLedgerConsensusTime } from './tools/track_ledger_consensus_time.js';
 import { manageSubscription } from './tools/manage_subscription.js';
@@ -61,6 +62,7 @@ import {
   SorobanMathInputSchema,
   ComputeVestingScheduleInputSchema,
   DeployContractInputSchema,
+  ManageDaoTreasuryInputSchema,
   ComputeInterestRatesInputSchema,
   CalculateBorrowingCapacityInputSchema,
   TrackLedgerConsensusTimeInputSchema,
@@ -277,6 +279,8 @@ class PulsarServer {
         },
         {
           name: 'fetch_contract_spec',
+          description:
+            'Fetch the ABI/interface spec of a deployed Soroban contract. Returns decoded function signatures, parameter types, and emitted event schemas.',
           description:
             'Fetch the ABI/interface spec of a deployed Soroban contract. Returns decoded function signatures, parameter types, and emitted event schemas.',
           inputSchema: {
@@ -738,6 +742,48 @@ class PulsarServer {
           },
         },
         {
+          name: 'manage_dao_treasury',
+          description:
+            'Manages DAO treasury operations: deposit funds, allocate budgets by category, spend/transfer funds, check balances, and view transaction history. Supports multiple treasuries with budget tracking and role-based access.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              action: {
+                type: 'string',
+                enum: ['deposit', 'allocate', 'spend', 'balance', 'history'],
+                description:
+                  "Treasury operation: 'deposit' (add funds), 'allocate' (budget for category), 'spend' (transfer), 'balance' (check balance), 'history' (view transactions)",
+              },
+              treasury_address: {
+                type: 'string',
+                description: 'Treasury contract ID (C...) or account (G...)',
+              },
+              amount: {
+                type: 'string',
+                description:
+                  'Amount to deposit, allocate, or spend (positive decimal, max 7 decimals)',
+              },
+              asset: {
+                type: 'string',
+                description: 'Asset code, e.g., XLM, USDC (default: XLM)',
+              },
+              recipient: {
+                type: 'string',
+                description: 'Recipient address for allocations or spending (G... or C...)',
+              },
+              description: {
+                type: 'string',
+                description: 'Memo/description for the transaction (max 256 chars)',
+              },
+              budget_category: {
+                type: 'string',
+                enum: ['grants', 'operations', 'development', 'marketing', 'legal', 'other'],
+                description: 'Budget category for allocation',
+              },
+              limit: {
+                type: 'number',
+                description: 'Max history entries to return (default: 10, max: 100)',
+              },
           name: 'track_ledger_consensus_time',
           description:
             'Tracks and reports the average time it takes for ledger consensus on the Stellar network. ' +
@@ -1171,6 +1217,7 @@ class PulsarServer {
                 description: 'Override the configured network for this call.',
               },
             },
+            required: ['action', 'treasury_address'],
             required: [],
           },
         },
@@ -1449,6 +1496,27 @@ class PulsarServer {
           case 'get_account_balance': {
             const parsed = GetAccountBalanceInputSchema.safeParse(args);
             if (!parsed.success) {
+              throw new PulsarValidationError(
+                `Invalid input for get_account_balance`,
+                parsed.error.format()
+              );
+            }
+            const result = await getAccountBalance(parsed.data);
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(result),
+                },
+              ],
+            };
+          }
+
+          case 'fetch_contract_spec': {
+            const parsed = fetchContractSpecSchema.safeParse(args);
+            if (!parsed.success) {
+              throw new PulsarValidationError(
+                `Invalid input for fetch_contract_spec`,
               throw new PulsarValidationError(`Invalid input for get_account_balance`, parsed.error.format());
             }
             const result = await getAccountBalance(parsed.data);
@@ -1779,6 +1847,15 @@ class PulsarServer {
             };
           }
 
+          case 'manage_dao_treasury': {
+            const parsed = ManageDaoTreasuryInputSchema.safeParse(args);
+            if (!parsed.success) {
+              throw new PulsarValidationError(
+                `Invalid input for manage_dao_treasury`,
+                parsed.error.format()
+              );
+            }
+            const result = await manageDaoTreasury(parsed.data);
           case 'get_token_transfer_fee': {
             const parsed = GetTokenTransferFeeInputSchema.safeParse(args);
             if (!parsed.success) {
