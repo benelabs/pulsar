@@ -43,6 +43,7 @@
   - [soroban_math](#soroban_math)
   - [compute_vesting_schedule](#compute_vesting_schedule)
   - [deploy_contract](#deploy_contract)
+  - [sign_with_ledger](#sign_with_ledger)
   - [export_ai_schemas](#export_ai_schemas)
   - [get_price_feed](#get_price_feed)
   - [calculate_dutch_auction_price](#calculate_dutch_auction_price)
@@ -141,6 +142,7 @@ There is currently **no community-driven MCP server** for Stellar, which means:
 | **Transaction Build Helper** | Construct common Stellar transactions (payment, trustline, manage data, etc.) without raw XDR knowledge |
 | **Soroban Math** | Fixed-point arithmetic, statistical functions (mean, std dev, TWAP), and financial math (compound interest, basis points) compatible with Soroban's 7-decimal integer model |
 | **Contract Deployment** | Deploy Soroban smart contracts via built-in deployer or factory contracts |
+| **Hardware Wallet Signing** | Securely sign transactions using a physical Ledger device |
 | **Bridge Event Observation** | Observe Soroban contract events emitted by cross-chain bridge contracts and filter them by contract, type, or topics |
 | **Price Feed Queries** | Query decentralized oracle contracts for real-time asset prices |
 | **Protocol Version Info** | Track network upgrades and feature availability across different networks |
@@ -1391,6 +1393,9 @@ Builds a Stellar transaction for deploying a Soroban smart contract. Supports tw
 
 ---
 
+### `sign_with_ledger`
+
+Delegates transaction signing to a physical Ledger hardware wallet. The device must be connected via USB and the Stellar app must be open. This tool will block until the user confirms or rejects the transaction on the device.
 ### `export_ai_schemas`
 
 Export comprehensive schema definitions of all Pulsar tools in a format optimized for AI training, documentation generation, and LLM system prompt creation. This tool enables seamless integration of Pulsar tool definitions into external AI/ML systems.
@@ -1542,6 +1547,9 @@ Perform safe integer arithmetic with overflow/underflow protection and Soroban-c
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
+| `xdr` | `string` | Yes | Base64-encoded unsigned transaction envelope XDR |
+| `derivation_path` | `string` | No | BIP44 derivation path (default: `m/44'/148'/0'`) |
+| `network` | `string` | No | Stellar network override (`mainnet`, `testnet`, `futurenet`) |
 | `a` | `string` | Yes | First operand (as string to support large integers) |
 | `b` | `string` | Yes | Second operand (as string) |
 | `operation` | `string` | Yes | `add`, `sub`, `mul`, `div` |
@@ -1834,6 +1842,9 @@ Get a quote for a potential swap, including expected output, price impact, and e
 
 ```jsonc
 {
+  "status": "SUCCESS",
+  "signed_xdr": "AAAAAgAAAAE...",
+  "network": "testnet"
   "result": "1000000000000000000",
   "operation": "add",
   "bounds": "u64",
@@ -1911,6 +1922,7 @@ Query the current state of an AMM pool, including reserves for both assets and t
 
 **Example prompt:**
 
+> _"Sign this transaction XDR with my Ledger: `AAAA...`"_
 > _"Get the current USD/XLM price from oracle contract `CA3D...` on testnet."_
 > _"Get pool information for the XLM/USDC pair on AMM contract `CA3D...`."_
 
