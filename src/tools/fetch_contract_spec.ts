@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { ContractIdSchema } from '../types.js';
+import { FieldsSchema } from '../schemas/index.js';
 import { FetchContractSpecInputSchema } from '../schemas/tools.js';
 import { runStellarCli } from '../services/stellar-cli.js';
 import { getRpcUrl } from '../services/soroban-rpc.js';
@@ -20,6 +21,7 @@ export const fetchContractSpecSchema = z.object({
     .enum(['mainnet', 'testnet', 'futurenet', 'custom'])
     .optional()
     .describe('Override the active network for this call.'),
+  fields: FieldsSchema,
 });
 
 export type FetchContractSpecInput = z.infer<typeof fetchContractSpecSchema>;

@@ -81,3 +81,33 @@ export type StellarSecretKey = z.infer<typeof StellarSecretKeySchema>;
 export type ContractId = z.infer<typeof ContractIdSchema>;
 export type XdrBase64 = z.infer<typeof XdrBase64Schema>;
 export type Network = z.infer<typeof NetworkSchema>;
+
+/**
+ * Optional list of top-level field names to include in a tool response.
+ * When present, only the listed keys are returned; unknown keys are silently
+ * ignored so that callers always receive a valid (possibly smaller) object.
+ */
+export const FieldsSchema = z
+  .array(z.string().min(1))
+  .min(1, { message: 'fields must contain at least one field name' })
+  .optional()
+  .describe('Subset of top-level response fields to return. Omit to receive the full response.');
+
+export type Fields = z.infer<typeof FieldsSchema>;
+
+/**
+ * Project a result object to the requested subset of fields.
+ * Returns the original object unchanged when `fields` is undefined.
+ */
+export function applyFieldProjection(result: object, fields: Fields): Record<string, unknown> {
+  if (!fields || fields.length === 0) return result as Record<string, unknown>;
+
+  const src = result as Record<string, unknown>;
+  const projected: Record<string, unknown> = {};
+  for (const key of fields) {
+    if (Object.prototype.hasOwnProperty.call(src, key)) {
+      projected[key] = src[key];
+    }
+  }
+  return projected;
+}

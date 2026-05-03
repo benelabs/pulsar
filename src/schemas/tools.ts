@@ -15,6 +15,7 @@ import {
   ContractIdSchema,
   XdrBase64Schema,
   NetworkSchema,
+  FieldsSchema,
 } from './index.js';
 
 const Hex32Schema = z
@@ -36,6 +37,7 @@ export const GetAccountBalanceInputSchema = z.object({
   network: NetworkSchema.optional(),
   asset_code: z.string().optional(),
   asset_issuer: StellarPublicKeySchema.optional(),
+  fields: FieldsSchema,
 });
 
 export type GetAccountBalanceInput = z.infer<typeof GetAccountBalanceInputSchema>;
@@ -112,6 +114,7 @@ export const SubmitTransactionInputSchema = z.object({
     .min(1000, { message: 'wait_timeout_ms must be at least 1000 ms' })
     .max(120_000, { message: 'wait_timeout_ms must not exceed 120000 ms' })
     .default(30_000),
+  fields: FieldsSchema,
 });
 
 export type SubmitTransactionInput = z.infer<typeof SubmitTransactionInputSchema>;
@@ -205,6 +208,7 @@ export type GetContractStorageInput = z.infer<
 export const SimulateTransactionInputSchema = z.object({
   xdr: XdrBase64Schema,
   network: NetworkSchema.optional(),
+  fields: FieldsSchema,
 });
 
 export type SimulateTransactionInput = z.infer<typeof SimulateTransactionInputSchema>;
@@ -368,6 +372,7 @@ export const ComputeVestingScheduleInputSchema = z.object({
     .positive()
     .optional()
     .describe('Optional override for current time as Unix timestamp'),
+  fields: FieldsSchema,
 });
 
 export type ComputeVestingScheduleInput = z.infer<typeof ComputeVestingScheduleInputSchema>;
@@ -443,6 +448,7 @@ export const DeployContractInputSchema = z.object({
       'If true in factory mode, simulates and assembles the transaction to minimize cross-contract resource overhead'
     ),
   network: NetworkSchema.optional(),
+  fields: FieldsSchema,
 });
 
 /**
