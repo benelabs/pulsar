@@ -51,6 +51,7 @@ import { sorobanMath } from './tools/soroban_math.js';
 import { decodeLedgerEntryTool, decodeLedgerEntrySchema } from './tools/decode_ledger_entry.js';
 import { computeVestingSchedule } from './tools/compute_vesting_schedule.js';
 import { deployContract } from './tools/deploy_contract.js';
+import { exportAiSchemas } from './tools/export_ai_schemas.js';
 import { estimateTokenFees } from './tools/estimate_token_fees.js';
 import { getOrderbook } from './tools/get_orderbook.js';
 import { decodeLedgerEntryTool, decodeLedgerEntrySchema } from './tools/decode_ledger_entry.js';
@@ -96,6 +97,7 @@ import {
   SorobanMathInputSchema,
   ComputeVestingScheduleInputSchema,
   DeployContractInputSchema,
+  ExportAiSchemasInputSchema,
   ObserveBridgeEventsInputSchema,
   EstimateTokenFeesInputSchema,
   GetOrderbookInputSchema,
@@ -1882,6 +1884,33 @@ class PulsarServer {
             ],
           },
         },
+        {
+          name: 'export_ai_schemas',
+          description:
+            'Export comprehensive schema definitions of all Pulsar tools in a format optimized for AI training and LLM consumption. ' +
+            'Supports JSON, Markdown, and OpenAPI formats. Useful for fine-tuning AI models, generating documentation, and system prompt generation.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              format: {
+                type: 'string',
+                enum: ['json', 'markdown', 'openapi'],
+                default: 'json',
+                description: 'Output format: json for machine-readable, markdown for documentation, openapi for OpenAPI spec',
+              },
+              include_examples: {
+                type: 'boolean',
+                default: true,
+                description: 'Include example inputs and outputs for each tool',
+              },
+              network: {
+                type: 'string',
+                enum: ['mainnet', 'testnet', 'futurenet', 'custom'],
+                description: 'Optional network filter to show only network-aware parameters',
+              },
+            },
+          },
+        },
       ],
     }));
 
@@ -2650,6 +2679,17 @@ class PulsarServer {
               throw new PulsarValidationError(`Invalid input for estimate_token_fees`, parsed.error.format());
             }
             const result = await estimateTokenFees(parsed.data);
+            return {
+              content: [{ type: 'text', text: JSON.stringify(result) }],
+            };
+          }
+
+          case 'export_ai_schemas': {
+            const parsed = ExportAiSchemasInputSchema.safeParse(args);
+            if (!parsed.success) {
+              throw new PulsarValidationError(`Invalid input for export_ai_schemas`, parsed.error.format());
+            }
+            const result = await exportAiSchemas(parsed.data);
             return {
               content: [{ type: 'text', text: JSON.stringify(result) }],
             };

@@ -43,6 +43,7 @@
   - [soroban_math](#soroban_math)
   - [compute_vesting_schedule](#compute_vesting_schedule)
   - [deploy_contract](#deploy_contract)
+  - [export_ai_schemas](#export_ai_schemas)
   - [get_price_feed](#get_price_feed)
   - [calculate_dutch_auction_price](#calculate_dutch_auction_price)
   - [calculate_english_auction_state](#calculate_english_auction_state)
@@ -144,6 +145,7 @@ There is currently **no community-driven MCP server** for Stellar, which means:
 | **Price Feed Queries** | Query decentralized oracle contracts for real-time asset prices |
 | **Protocol Version Info** | Track network upgrades and feature availability across different networks |
 | **Vesting Schedule Computation** | Calculate token vesting / timelock release schedules for team, investors, and advisors |
+| **Schema Export for AI** | Export all tool definitions in JSON, Markdown, or OpenAPI formats for AI training and documentation |
 | **Auction Pricing** | Calculate current prices and bid requirements for Dutch and English auctions |
 | **Safe Math Utilities** | Perform overflow/underflow protected arithmetic for BigInt and Soroban types |
 | **Ledger Consensus Tracking** | Sample recent ledgers and report average, min, max, and std-dev of inter-ledger close times |
@@ -1389,6 +1391,15 @@ Builds a Stellar transaction for deploying a Soroban smart contract. Supports tw
 
 ---
 
+### `export_ai_schemas`
+
+Export comprehensive schema definitions of all Pulsar tools in a format optimized for AI training, documentation generation, and LLM system prompt creation. This tool enables seamless integration of Pulsar tool definitions into external AI/ML systems.
+
+**Supported export formats:**
+
+- **JSON** — Machine-readable schema with type information, examples, and metadata. Ideal for programmatic consumption.
+- **Markdown** — Human-readable documentation with formatted descriptions, code blocks, and best practices.
+- **OpenAPI 3.0** — Industry-standard REST API specification format for integration with API documentation tools and SDK generators.
 ### `get_price_feed`
 
 Queries a decentralized oracle contract for the price of a base asset in terms of a quote asset. Assumes the oracle contract implements a standard interface with a `get_price(base_asset: Symbol, quote_asset: Symbol) -> i128` function.
@@ -1440,6 +1451,77 @@ Retrieves the current Stellar protocol version and network information from Hori
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
+| `format` | `string` | No | Export format: `json` (default), `markdown`, or `openapi` |
+| `include_examples` | `boolean` | No | Include example inputs and outputs for each tool. Default: `true` |
+| `network` | `string` | No | Optional network filter (does not affect exported schemas, only for future filtering) |
+
+**Output (format: json):**
+
+```jsonc
+{
+  "format": "json",
+  "content_type": "application/json",
+  "schema_count": 7,
+  "include_examples": true,
+  "data": {
+    "version": "1.0.0",
+    "server": "pulsar",
+    "description": "Pulsar MCP Server — Stellar/Soroban tools for automated blockchain operations...",
+    "tools": [
+      {
+        "name": "get_account_balance",
+        "description": "Query the current XLM and issued asset balances...",
+        "category": "query",
+        "inputSchema": { "type": "object", "properties": { ... } },
+        "outputSchema": { "type": "object", "properties": { ... } },
+        "examples": {
+          "input": { "account_id": "GBBD47IF..." },
+          "output": { "account_id": "GBBD47IF...", "balances": [...] }
+        }
+      },
+      ...
+    ],
+    "metadata": {
+      "total_tools": 7,
+      "categories": { "query": 1, "transaction": 2, "contract": 2, "utility": 2 },
+      "security_notes": [...],
+      "stellar_best_practices": [...]
+    }
+  }
+}
+```
+
+**Output (format: markdown):**
+
+Returns a formatted Markdown document with:
+- Overview and table of contents
+- Security & best practices section
+- Per-tool documentation with descriptions, input/output schemas, and examples
+- Warnings for dangerous operations (e.g., `submit_transaction`)
+
+**Output (format: openapi):**
+
+Returns an OpenAPI 3.0.0 specification with:
+- Server definitions
+- Path definitions for each tool
+- Request/response schemas
+- Component definitions (reusable types)
+
+**Use cases:**
+
+1. **AI Training** — Export as JSON to fine-tune language models with accurate tool definitions
+2. **Documentation** — Export as Markdown to auto-generate developer documentation
+3. **API Clients** — Export as OpenAPI to generate type-safe SDK clients
+4. **System Prompts** — Use Markdown output in LLM system prompts for accurate tool invocation
+5. **Integration** — Consume JSON exports in external systems for tool discovery and validation
+
+**Example prompts:**
+
+> _"Export all tool schemas as JSON for fine-tuning an LLM."_
+
+> _"Generate Markdown documentation for all Pulsar tools with examples."_
+
+> _"Export tool definitions in OpenAPI format for SDK generation."_
 | `contract_id` | `string` | Yes | The Soroban oracle contract address (`C...`) |
 | `base_asset` | `string` | Yes | Base asset symbol (e.g., `USD`) |
 | `quote_asset` | `string` | Yes | Quote asset symbol (e.g., `XLM`) |

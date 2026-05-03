@@ -500,6 +500,32 @@ export type GetAccountHistoryInput = z.infer<typeof GetAccountHistoryInputSchema
 export type DeployContractInput = z.infer<typeof DeployContractInputSchema>;
 
 /**
+ * Schema for export_ai_schemas tool
+ *
+ * Exports comprehensive schema definitions of all Pulsar tools in a format optimized
+ * for AI training and LLM consumption.
+ *
+ * Inputs:
+ * - format: Output format ('json' | 'markdown' | 'openapi', default: 'json')
+ * - include_examples: Include example inputs/outputs (default: true)
+ * - network: Optional network filter
+ */
+export const ExportAiSchemasInputSchema = z.object({
+  format: z
+    .enum(["json", "markdown", "openapi"])
+    .default("json")
+    .describe("Output format: 'json' for machine-readable, 'markdown' for documentation, 'openapi' for OpenAPI spec"),
+  include_examples: z
+    .boolean()
+    .default(true)
+    .describe("Include example inputs and outputs for each tool"),
+  network: z
+    .enum(["mainnet", "testnet", "futurenet", "custom"])
+    .optional()
+    .describe("Optional network filter to show only network-aware parameters"),
+});
+
+export type ExportAiSchemasInput = z.infer<typeof ExportAiSchemasInputSchema>;
  * Schema for estimate_token_fees tool
  */
 export const EstimateTokenFeesInputSchema = z.object({
