@@ -1,0 +1,6 @@
+{
+  "event": "CREATE",
+  "actor": "Address",
+  "target": "Address | null",
+  "metadata": "Symbol"
+}

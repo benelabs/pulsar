@@ -7,7 +7,7 @@
  * SECURITY: Secret keys are never logged or surfaced in error messages.
  */
 
-import { z } from "zod";
+import { z } from 'zod';
 
 /**
  * Stellar public key validator.
@@ -15,12 +15,12 @@ import { z } from "zod";
  */
 export const StellarPublicKeySchema = z
   .string()
-  .startsWith("G", { message: "Public key must start with 'G'" })
-  .length(56, { message: "Public key must be exactly 56 characters" })
+  .startsWith('G', { message: "Public key must start with 'G'" })
+  .length(56, { message: 'Public key must be exactly 56 characters' })
   .regex(/^[A-Z2-7]+$/, {
-    message: "Public key must contain only base32 characters (A-Z, 2-7)",
+    message: 'Public key must contain only base32 characters (A-Z, 2-7)',
   })
-  .describe("Stellar public key (G..., 56 chars)");
+  .describe('Stellar public key (G..., 56 chars)');
 
 /**
  * Stellar secret key validator.
@@ -29,12 +29,12 @@ export const StellarPublicKeySchema = z
  */
 export const StellarSecretKeySchema = z
   .string()
-  .startsWith("S", { message: "Secret key must start with 'S'" })
-  .length(56, { message: "Secret key must be exactly 56 characters" })
+  .startsWith('S', { message: "Secret key must start with 'S'" })
+  .length(56, { message: 'Secret key must be exactly 56 characters' })
   .regex(/^[A-Z2-7]+$/, {
-    message: "Secret key must contain only base32 characters (A-Z, 2-7)",
+    message: 'Secret key must contain only base32 characters (A-Z, 2-7)',
   })
-  .describe("Stellar secret key (S..., 56 chars) — NEVER logged");
+  .describe('Stellar secret key (S..., 56 chars) — NEVER logged');
 
 /**
  * Soroban contract address validator.
@@ -42,12 +42,12 @@ export const StellarSecretKeySchema = z
  */
 export const ContractIdSchema = z
   .string()
-  .startsWith("C", { message: "Contract ID must start with 'C'" })
-  .length(56, { message: "Contract ID must be exactly 56 characters" })
+  .startsWith('C', { message: "Contract ID must start with 'C'" })
+  .length(56, { message: 'Contract ID must be exactly 56 characters' })
   .regex(/^[A-Z2-7]+$/, {
-    message: "Contract ID must contain only base32 characters (A-Z, 2-7)",
+    message: 'Contract ID must contain only base32 characters (A-Z, 2-7)',
   })
-  .describe("Soroban contract ID (C..., 56 chars)");
+  .describe('Soroban contract ID (C..., 56 chars)');
 
 /**
  * XDR base64 validator.
@@ -55,17 +55,17 @@ export const ContractIdSchema = z
  */
 export const XdrBase64Schema = z
   .string()
-  .min(1, { message: "XDR cannot be empty" })
-  .regex(/^[A-Za-z0-9+/]*={0,2}$/, { message: "XDR must be valid base64" })
-  .describe("Base64-encoded XDR transaction envelope");
+  .min(1, { message: 'XDR cannot be empty' })
+  .regex(/^[A-Za-z0-9+/]*={0,2}$/, { message: 'XDR must be valid base64' })
+  .describe('Base64-encoded XDR transaction envelope');
 
 /**
  * Stellar network validator.
  * Enum: mainnet | testnet | futurenet | custom
  */
 export const NetworkSchema = z
-  .enum(["mainnet", "testnet", "futurenet", "custom"])
-  .describe("Stellar network: mainnet, testnet, futurenet, or custom");
+  .enum(['mainnet', 'testnet', 'futurenet', 'custom'])
+  .describe('Stellar network: mainnet, testnet, futurenet, or custom');
 
 /**
  * Account balance query schema (for get_account_balance tool)

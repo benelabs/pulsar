@@ -1,10 +1,6 @@
 import { expect, it } from 'vitest';
 
-import {
-  describeIfIntegration,
-  TESTNET_HORIZON_URL,
-  TESTNET_SOROBAN_RPC_URL,
-} from './setup.js';
+import { describeIfIntegration, TESTNET_HORIZON_URL, TESTNET_SOROBAN_RPC_URL } from './setup.js';
 
 /**
  * Integration tests for submit_transaction tool.
