@@ -14,6 +14,7 @@ import {
 import type { McpToolHandler } from "../types.js";
 import logger from "../logger.js";
 import { PulsarNetworkError, PulsarValidationError } from "../errors.js";
+import { getSorobanServer } from "../services/soroban-rpc.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -153,9 +154,8 @@ export const submitTransaction: McpToolHandler<
   }
 
   // Poll Soroban RPC (getTransaction) until terminal state or timeout
-  const rpcUrl = config.sorobanRpcUrl ?? resolveRpcUrl(network);
   const { rpc: SorobanRpc } = await import("@stellar/stellar-sdk");
-  const rpcServer = new SorobanRpc.Server(rpcUrl, { allowHttp: false });
+  const rpcServer = getSorobanServer(network);
 
   const deadline = Date.now() + timeoutMs;
   const POLL_INTERVAL_MS = 1_500;
@@ -223,18 +223,6 @@ export const submitTransaction: McpToolHandler<
 // ---------------------------------------------------------------------------
 // Private helpers
 // ---------------------------------------------------------------------------
-
-function resolveRpcUrl(network: string): string {
-  switch (network) {
-    case "mainnet":
-      return "https://mainnet.sorobanrpc.com";
-    case "futurenet":
-      return "https://rpc-futurenet.stellar.org";
-    case "testnet":
-    default:
-      return "https://soroban-testnet.stellar.org";
-  }
-}
 
 function extractDiagnosticEvents(
   txStatus: Record<string, unknown>,

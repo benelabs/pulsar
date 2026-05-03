@@ -1,24 +1,41 @@
-import { SorobanRpc } from "@stellar/stellar-sdk";
+/**
+ * Soroban RPC service layer.
+ *
+ * This module provides functions to obtain a Soroban RPC server instance
+ * and the best RPC URL for a given network. Latency-based routing is
+ * handled by the RpcRouter class (see rpc-router.ts).
+ */
 
-import { config } from "../config.js";
-import { PulsarValidationError } from "../errors.js";
+import { getSorobanServer as routerGetSorobanServer, getBestRpcUrl as routerGetBestRpcUrl } from "./rpc-router.js";
 
-const NETWORK_RPC_URLS: Record<string, string> = {
-  mainnet: "https://soroban-rpc.stellar.org",
-  testnet: "https://soroban-testnet.stellar.org",
-  futurenet: "https://rpc-futurenet.stellar.org",
-};
-
+/**
+ * Return the best RPC URL for the specified network.
+ * This URL is selected based on health and latency metrics.
+ */
 export function getRpcUrl(network?: string): string {
-  const net = network ?? config.stellarNetwork;
-  if (net === "custom") {
-    if (!config.sorobanRpcUrl) throw new PulsarValidationError("SOROBAN_RPC_URL must be set for custom network");
-    return config.sorobanRpcUrl;
-  }
-  return NETWORK_RPC_URLS[net] ?? NETWORK_RPC_URLS["testnet"];
+  return routerGetBestRpcUrl(network);
 }
 
+/**
+ * Return a SorobanRpc.Server instance configured for the best endpoint.
+ */
+export function getSorobanServer(network?: string): SorobanRpc.Server {
+  return routerGetSorobanServer(network);
+// Reuse one SorobanRpc.Server per unique URL — avoids repeated connection
+// setup on every simulate/submit call.
+const serverCache = new Map<string, SorobanRpc.Server>();
 
 export function getSorobanServer(network?: string): SorobanRpc.Server {
-  return new SorobanRpc.Server(getRpcUrl(network), { allowHttp: false });
+  const url = getRpcUrl(network);
+  let server = serverCache.get(url);
+  if (!server) {
+    server = new SorobanRpc.Server(url, { allowHttp: false });
+    serverCache.set(url, server);
+  }
+  return server;
+}
+
+/** Exposed for testing — clears the singleton cache. */
+export function _resetSorobanServerCache(): void {
+  serverCache.clear();
 }

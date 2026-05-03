@@ -1,0 +1,9 @@
+[workspace]
+members = [
+    "contracts/sep41-token",
+    "contracts/reference",
+]
+resolver = "2"
+
+[workspace.dependencies]
+soroban-sdk = { version = "22.0.0", features = ["testutils"] }
